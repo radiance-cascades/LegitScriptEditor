@@ -187,7 +187,13 @@ function UpdateFramegraph(
   result: LegitScriptLoadResult,
   raiseError: RaisesErrorFN
 ) {
+
+  framegraph.executionOrder = []
   for (const desc of result.shader_descs) {
+    // TODO: compute this via dependencies
+    framegraph.executionOrder.push(desc.name)
+
+    console.log(desc)
     const outputs = desc.outs.map(({ name, type }) => `out ${type} ${name};\n`)
     const uniforms = desc.uniforms.map(
       ({ name, type }) => `uniform ${type} ${name};\n`
@@ -319,46 +325,12 @@ function ExecuteFrame(dt: number, state: State) {
   }
 
   for (const passName of state.framegraph?.executionOrder ?? []) {
-    console.log("passName", passName)
     const pass = state.framegraph.passes[passName]
     gl.useProgram(pass.program)
-    gl.uniform1f(gl.getUniformLocation(pass.program, "time"), dt * 0.001)
+    // gl.uniform1f(gl.getUniformLocation(pass.program, "time"), dt * 0.001)
 
-    if (pass.texture) {
-      v2scratch[0] = gpu.canvas.width
-      v2scratch[1] = gpu.canvas.height
-      if (pass.size) {
-        pass.size(v2scratch, v2scratch)
-      }
-
-      gl.bindFramebuffer(gl.FRAMEBUFFER, state.gpu.fbo)
-      gl.viewport(0, 0, v2scratch[0], v2scratch[1])
-      gl.bindTexture(gl.TEXTURE_2D, pass.texture)
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        v2scratch[0],
-        v2scratch[1],
-        0,
-        // TODO: allow format changes
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        null
-      )
-
-      gl.framebufferTexture2D(
-        gl.FRAMEBUFFER,
-        // TODO: pull this from the preprocessor, based on the number of outputs
-        gl.COLOR_ATTACHMENT0,
-        gl.TEXTURE_2D,
-        pass.texture,
-        0
-      )
-    } else {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-      gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
-    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
     gpu.fullScreenRenderer()
   }
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))

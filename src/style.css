@@ -25,11 +25,10 @@ body {
   height: 1vh;
   min-height: 100vh;
   width: 100%;
-  gap: 1em;
 }
 
 #app #editor {
-  border: 1px solid #ccc;
+  border-right: 1px solid #ccc;
   margin:auto;
   height: 100%;
   width: 100%;
@@ -43,5 +42,5 @@ body {
 }
 
 #app output canvas {
-  border:1px solid #ccc;
+
 }
