@@ -13,11 +13,11 @@ import Module from './LegitScriptWasm.js'
 
       if (msg.type === 'compile') {
         try {
-          const result = legitScriptCompiler.LegitScriptLoad(msg.src)
-
+          const result = JSON.parse(legitScriptCompiler.LegitScriptLoad(msg.src))
+console.log('result', result)
           self.postMessage(JSON.stringify({
             type: msg.type,
-            result: JSON.parse(result)
+            result
           }))
         } catch (e) {
 

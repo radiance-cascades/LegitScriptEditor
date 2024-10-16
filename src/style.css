@@ -24,20 +24,18 @@ body {
   flex-wrap: nowrap;
   height: 1vh;
   min-height: 100vh;
-  width: 100%
+  width: 100%;
+  gap: 1em;
 }
 
 #app #editor {
   border: 1px solid #ccc;
-
   margin:auto;
   height: 100%;
   width: 100%;
 }
 
 #app output {
-  border: 1px solid red;
-
   height: 100%;
   width: 100%;
   margin: auto;
@@ -45,5 +43,5 @@ body {
 }
 
 #app output canvas {
-  border:1px solid #f0f;
+  border:1px solid #ccc;
 }
