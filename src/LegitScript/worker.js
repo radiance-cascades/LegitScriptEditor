@@ -1,9 +1,8 @@
-import Module from './LegitScriptWasm.js'
-
+import Module from "./LegitScriptWasm.js"
 ;(async () => {
-  const legitScriptCompiler = await Module();
+  const legitScriptCompiler = await Module()
 
-  self.addEventListener('message', (event) => {
+  self.addEventListener("message", (event) => {
     try {
       const msg = JSON.parse(event.data)
       if (!msg) {
@@ -11,21 +10,24 @@ import Module from './LegitScriptWasm.js'
         return
       }
 
-      if (msg.type === 'compile') {
+      if (msg.type === "compile") {
         try {
-          const result = JSON.parse(legitScriptCompiler.LegitScriptLoad(msg.src))
-console.log('result', result)
-          self.postMessage(JSON.stringify({
-            type: msg.type,
-            result
-          }))
-        } catch (e) {
+          const result = JSON.parse(
+            legitScriptCompiler.LegitScriptLoad(msg.src)
+          )
 
-          console.error('Caught exception emitted from LegitScript', e)
+          self.postMessage(
+            JSON.stringify({
+              type: msg.type,
+              result,
+            })
+          )
+        } catch (e) {
+          console.error("Caught exception emitted from LegitScript", e)
 
           self.postMessage({
             type: "error",
-            result: e
+            result: e,
           })
         }
       }
