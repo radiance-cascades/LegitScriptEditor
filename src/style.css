@@ -1,14 +1,14 @@
-html {
+html, html {
   padding: 0;
+  margin: 0;
+  height: 100%;
 }
 
 body {
   margin: 0;
-  padding: 1em;
   background-color: #111;
   color: #fff;
   font-family: sans-serif;
-
 }
 
 #compilation-result {
@@ -16,4 +16,34 @@ body {
   color: #fff;
   height: 500px;
   padding: 1em;
+}
+
+#app {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  height: 1vh;
+  min-height: 100vh;
+  width: 100%
+}
+
+#app #editor {
+  border: 1px solid #ccc;
+
+  margin:auto;
+  height: 100%;
+  width: 100%;
+}
+
+#app output {
+  border: 1px solid red;
+
+  height: 100%;
+  width: 100%;
+  margin: auto;
+  position:relative;
+}
+
+#app output canvas {
+  border:1px solid #f0f;
 }
