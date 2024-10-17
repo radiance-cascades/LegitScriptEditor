@@ -388,9 +388,13 @@ async function Init(
       return value
     },
     text(value: string) {
-      // console.log(value)
-      // TODO: wire me up
-      return value
+      const control = Control("float", name)
+      if (!control.el) {
+        control.el = document.createElement('control')
+        controlsEl.append(control.el)
+      }
+
+      control.el.innerText = value
     },
   }
 
