@@ -63,7 +63,7 @@ export type LegitScriptImmediateModeControlCallbacks = {
 export type ImmediateModeControlType = 'float' | 'int' | 'text'
 export type ImmediateModeControl = {
   type: ImmediateModeControlType
-  name: string | '@@text'
+  name: string | null
   el?: HTMLElement
   // track whether this control was used in the last frame
   // if it was not, then it gets removed

@@ -13,6 +13,7 @@ import {
   State,
 } from "./types"
 
+// @ts-ignore
 import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
 
 self.MonacoEnvironment = {
@@ -494,8 +495,14 @@ function ExecuteFrame(dt: number, state: State) {
             gl.uniform1f(pass.uniforms[uniformIndex], uniform.val)
             break;
           }
+          case 'int': {
+            gl.uniform1i(pass.uniforms[uniformIndex], uniform.val)
+            break;
+          }
+          default: {
+            console.error("ERROR: unhandled uniform type '%s'", uniform.type)
+          }
         }
-
       }
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
