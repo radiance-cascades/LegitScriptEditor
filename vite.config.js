@@ -1,4 +1,6 @@
-export default {
+import { defineConfig } from 'vite'
+
+export default defineConfig({
   base: '/LegitScriptEditor/',
   build: {
     outDir: 'dist/prod',
@@ -7,4 +9,4 @@ export default {
     rollupOptions: {
     }
   }
-}
+});
