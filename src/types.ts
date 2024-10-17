@@ -10,6 +10,7 @@ export type GPUState = {
 export type FramegraphPass = {
   fragSource: string
   program: WebGLProgram
+  uniforms: (WebGLUniformLocation | null)[]
 }
 
 export type FramegraphPasses = {

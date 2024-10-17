@@ -30,7 +30,7 @@ body {
 #app #editor {
   border-right: 1px solid #ccc;
   height: 100%;
-  flex: 1;
+  flex: 2;
 }
 
 #app output {

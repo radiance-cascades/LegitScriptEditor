@@ -250,6 +250,14 @@ function UpdateFramegraph(
     framegraph.passes[desc.name] = {
       fragSource,
       program,
+      uniforms: desc.uniforms.map(({name}) => {
+        const loc = gl.getUniformLocation(program, name)
+        if (!loc) {
+          raiseError(`uniform location could not be determined: ${name} `)
+          return null
+        }
+        return loc
+      })
     }
   }
 
@@ -468,10 +476,23 @@ function ExecuteFrame(dt: number, state: State) {
   )
   if (legitFrame) {
     for (const invocation of legitFrame.shader_invocations) {
-      // console.log('invocation', invocation)
       const pass = state.framegraph.passes[invocation.shader_name]
       gl.useProgram(pass.program)
-      // gl.uniform1f(gl.getUniformLocation(pass.program, "time"), dt * 0.001)
+
+      for (let uniformIndex=0; uniformIndex < invocation.uniforms.length; uniformIndex++) {
+        const uniform = invocation.uniforms[uniformIndex]
+        if (!uniform) {
+          continue;
+        }
+
+        switch (uniform.type) {
+          case 'float': {
+            gl.uniform1f(pass.uniforms[uniformIndex], uniform.val)
+            break;
+          }
+        }
+
+      }
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
