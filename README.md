@@ -7,6 +7,7 @@ An editor for [LegitScript](https://github.com/Raikiri/LegitScript) with WebGL o
 After cloning the repo, cd into it and run
 
 ```
+nix-shell
 npm i
 npm run dev
 ```
