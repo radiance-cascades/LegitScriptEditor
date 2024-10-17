@@ -453,7 +453,6 @@ function ExecuteFrame(dt: number, state: State) {
   gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
   gl.clearColor(0.0, 0.0, 0.0, 1.0)
   gl.clear(gl.COLOR_BUFFER_BIT)
-
   if (!state.framegraph) {
     return
   }
@@ -479,35 +478,40 @@ function ExecuteFrame(dt: number, state: State) {
     gpu.canvas.height,
     dt
   )
+
   if (legitFrame) {
-    for (const invocation of legitFrame.shader_invocations) {
-      const pass = state.framegraph.passes[invocation.shader_name]
-      gl.useProgram(pass.program)
+    try {
+      for (const invocation of legitFrame.shader_invocations) {
+        const pass = state.framegraph.passes[invocation.shader_name]
+        gl.useProgram(pass.program)
 
-      for (let uniformIndex=0; uniformIndex < invocation.uniforms.length; uniformIndex++) {
-        const uniform = invocation.uniforms[uniformIndex]
-        if (!uniform) {
-          continue;
+        for (let uniformIndex=0; uniformIndex < invocation.uniforms.length; uniformIndex++) {
+          const uniform = invocation.uniforms[uniformIndex]
+          if (!uniform) {
+            continue;
+          }
+
+          switch (uniform.type) {
+            case 'float': {
+              gl.uniform1f(pass.uniforms[uniformIndex], uniform.val)
+              break;
+            }
+            case 'int': {
+              gl.uniform1i(pass.uniforms[uniformIndex], uniform.val)
+              break;
+            }
+            default: {
+              console.error("ERROR: unhandled uniform type '%s'", uniform.type)
+            }
+          }
         }
 
-        switch (uniform.type) {
-          case 'float': {
-            gl.uniform1f(pass.uniforms[uniformIndex], uniform.val)
-            break;
-          }
-          case 'int': {
-            gl.uniform1i(pass.uniforms[uniformIndex], uniform.val)
-            break;
-          }
-          default: {
-            console.error("ERROR: unhandled uniform type '%s'", uniform.type)
-          }
-        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
+        gpu.fullScreenRenderer()
       }
-
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-      gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
-      gpu.fullScreenRenderer()
+    } catch (e) {
+      // can console.log/console.error this, but it'll stuck in a busy loop until error resolves
     }
   }
 
