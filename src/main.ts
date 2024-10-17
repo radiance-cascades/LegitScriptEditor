@@ -331,7 +331,7 @@ async function Init(
 
   function Control(
     type: ImmediateModeControlType,
-    name: string
+    name: string | null
   ): ImmediateModeControl {
     if (state.frameControlIndex < state.controls.length) {
       const currentControl = state.controls[state.frameControlIndex]
@@ -388,7 +388,7 @@ async function Init(
       return value
     },
     text(value: string) {
-      const control = Control("float", name)
+      const control = Control("float", null)
       if (!control.el) {
         control.el = document.createElement('control')
         controlsEl.append(control.el)
@@ -426,13 +426,13 @@ async function Init(
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
-const Floor = Math.floor
+
 function ExecuteFrame(dt: number, state: State) {
   const gpu = state.gpu
-  // Ensure we're sized properly w.r.t. pixel ratio
-  const rect = gpu.container.getBoundingClientRect()
 
-  // TODO: fix this
+  // TODO: fix this, position:relative causes pain w.r.t. flexbox
+  // Ensure we're sized properly w.r.t. pixel ratio
+  //const rect = gpu.container.getBoundingClientRect()
   // if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
   //   gpu.dims[0] = rect.width
   //   gpu.dims[1] = rect.height
