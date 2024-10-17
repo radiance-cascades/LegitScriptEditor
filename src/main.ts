@@ -22,12 +22,28 @@ self.MonacoEnvironment = {
   },
 }
 
-const initialContent = `
-void ColorPass(in float r, in float g, in float b, out vec4 out_color)
+const initialContent = `void ColorPass(in float r, in float g, in float b, in float p, in int width, in int height, out vec4 out_color)
 {{
+  vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }  
   void main()
   {
-    out_color = vec4(r, g, b + 0.5f, 1.0f);
+    vec2 res = vec2(width, height);
+    vec2 uv = gl_FragCoord.xy / res.xy;
+    float i = gl_FragCoord.x;
+    float j = gl_FragCoord.y;
+    vec2 s = res;
+    int n = int(s.x * 0.5);
+    vec2 c = vec2(-0.8, cos(2. * p));
+    vec2 z = vec2(i / float(n) - 1., j / float(n) - 0.5) * 2.;
+    int iterations = 0;
+    while (sqrt(dot(z, z)) < 20. && iterations < 50) {
+      z = complex_sqr(z) + c;
+      iterations = iterations + 1;
+    }
+    vec4 fractal = vec4(float(iterations) - log2(0.5 * log(dot(z, z)) / log(20.0))) * 0.02;
+    fractal.a = 1.;
+    out_color.rgb = fractal.xyz * vec3(r, g, b);
+    out_color.a = 1.;
   }
 }}
 
@@ -37,13 +53,18 @@ void RenderGraphMain()
   void main()
   {
     Image img = GetImage(ivec2(128, 128), rgba8);
+    Image sc = GetSwapchainImage();
+    int a = SliderInt("Int param", -42, 42, 5);
+    float b = SliderFloat("Float param", -42.0f, 42.0f);
     ColorPass(
       SliderFloat("R", 0.0f, 1.0f) + 0.5f,
       SliderFloat("G", 0.0f, 1.0f),
       SliderFloat("B", 0.0f, 1.0f),
-      GetSwapchainImage());
-    int a = SliderInt("Int param", -42, 42, 5);
-    float b = SliderFloat("Float param", -42.0f, 42.0f);
+      SliderFloat("P", 0.0f, 2.0f),
+      sc.GetSize().x,
+      sc.GetSize().y,
+      sc
+      );
     //float e = SliderFloat("Float param", -42.0f, 42.0f);
     Text("script int: " + formatInt(a) + " float: " + formatFloat(b));
   }
