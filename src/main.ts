@@ -10,6 +10,9 @@ import {
   State,
 } from "./types"
 
+import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
+
+
 self.MonacoEnvironment = {
   getWorker: function (_moduleId: string, _label: string) {
     return new editorWorker()
@@ -24,6 +27,8 @@ void ColorPass(in float r, in float g, in float b, out vec4 out_color)
     out_color = vec4(r, g, b + 0.5f, 1.0f);
   }
 }}
+
+[rendergraph]
 void RenderGraphMain()
 {{
   void main()
@@ -42,26 +47,53 @@ void RenderGraphMain()
 }}
 `
 
-async function CompileLegitScript(
-  worker: Worker,
+function CompileLegitScript(
+  legitScriptCompiler: LegitScriptCompiler,
   editor: monaco.editor.ICodeEditor
-) {
+): LegitScriptLoadResult | false {
+
+  const imControls = {
+    floatSlider(name, value, lo, hi) {
+      // TODO: wire me up
+      return value
+    },
+    intSlider(name, value, lo, hi) {
+      // TODO: wire me up
+      return value
+    },
+    text(value) {
+      // TODO: wire me up
+    }
+  }
+
   try {
     const content = editor.getModel()?.createSnapshot().read() || ""
-
-    worker.postMessage(
-      JSON.stringify({
-        type: "compile",
-        src: content,
-      })
-    )
-
-    return true
+    const r = JSON.parse(legitScriptCompiler.LegitScriptLoad(content, imControls))
+    return r
   } catch (e) {
     console.error(e)
     return false
   }
 }
+
+function LegitScriptFrame(legitScriptCompiler: LegitScriptCompiler, width: number, height: number, time: number) {
+  try {
+    const raw = legitScriptCompiler.LegitScriptFrame(width, height, time)
+    return JSON.parse(raw)
+  } catch (e) {
+    console.error(e)
+    return false
+  }
+}
+
+function createDebouncer(delay: number, fn: () => void) {
+  let handle = setTimeout(fn, delay)
+  return function() {
+    handle && clearTimeout(handle)
+    handle = setTimeout(fn, delay)
+  }
+}
+
 
 function CreateFullscreenRenderer(gl: WebGL2RenderingContext) {
   const vertexBuffer = new Float32Array([-1, -1, -1, 4, 4, -1])
@@ -193,7 +225,6 @@ function UpdateFramegraph(
     // TODO: compute this via dependencies
     framegraph.executionOrder.push(desc.name)
 
-    console.log(desc)
     const outputs = desc.outs.map(({ name, type }) => `out ${type} ${name};\n`)
     const uniforms = desc.uniforms.map(
       ({ name, type }) => `uniform ${type} ${name};\n`
@@ -244,10 +275,7 @@ async function Init(
     throw new Error("please provide an editor element and canvas element")
   }
 
-  const compilerWorker = new Worker(
-    new URL("./LegitScript/worker", import.meta.url),
-    { type: "module" }
-  )
+  const legitScriptCompiler = await LegitScriptCompiler()
 
   const editor = InitEditor(editorEl)
   if (!editor) {
@@ -263,38 +291,30 @@ async function Init(
       passes: {},
       executionOrder: []
     },
+    legitScriptCompiler
   }
 
-  compilerWorker.addEventListener("message", (event) => {
-    try {
-      const msg = JSON.parse(event.data)
-      switch (msg.type) {
-        case "compile": {
-          UpdateFramegraph(state.gpu, state.framegraph, msg.result, RaiseError)
+  // Initial compilation
+  {
+    const compileResult = CompileLegitScript(legitScriptCompiler, editor)
+    if (compileResult) {
+      UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
+    }
+  }
 
-          break
-        }
-
-        case "error": {
-          console.error("ERROR", msg)
-          break
-        }
-      }
-    } catch (e: any) {
-      console.error("failed to parse compiler message", e.stack)
+  const typingDebouncer = createDebouncer(250, () => {
+    const compileResult = CompileLegitScript(legitScriptCompiler, editor)
+    if (compileResult) {
+      UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
     }
   })
 
-  await CompileLegitScript(compilerWorker, editor)
-  editor.getModel()?.onDidChangeContent(async () => {
-    await CompileLegitScript(compilerWorker, editor)
-  })
+  editor.getModel()?.onDidChangeContent(typingDebouncer)
 
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
 const Floor = Math.floor
-const v2scratch = [0, 0]
 function ExecuteFrame(dt: number, state: State) {
   const gpu = state.gpu
   // Ensure we're sized properly w.r.t. pixel ratio
@@ -324,15 +344,23 @@ function ExecuteFrame(dt: number, state: State) {
     return
   }
 
-  for (const passName of state.framegraph?.executionOrder ?? []) {
-    const pass = state.framegraph.passes[passName]
-    gl.useProgram(pass.program)
-    // gl.uniform1f(gl.getUniformLocation(pass.program, "time"), dt * 0.001)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
-    gpu.fullScreenRenderer()
+  const legitFrame = LegitScriptFrame(state.legitScriptCompiler, gpu.canvas.width, gpu.canvas.height, dt)
+  if (legitFrame) {
+    console.log(legitFrame)
+    for (const invocation of legitFrame.shader_invocations) {
+      console.log(invocation)
+    }
   }
+
+  // for (const passName of state.framegraph?.executionOrder ?? []) {
+  //   const pass = state.framegraph.passes[passName]
+  //   gl.useProgram(pass.program)
+  //   // gl.uniform1f(gl.getUniformLocation(pass.program, "time"), dt * 0.001)
+
+  //   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  //   gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
+  //   gpu.fullScreenRenderer()
+  // }
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 

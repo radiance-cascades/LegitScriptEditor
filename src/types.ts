@@ -25,11 +25,17 @@ export type State = {
   editor: any
   gpu: GPUState
   framegraph: Framegraph
+  legitScriptCompiler: any
 }
 
 export type LegitScriptNameTypePair = {
   name: string
   type: string
+}
+
+export type LegitScriptCompiler = {
+
+  LegitScriptFrame: (width: number, height: number, time: number) => void
 }
 
 export type LegitScriptShaderOutput = LegitScriptNameTypePair
