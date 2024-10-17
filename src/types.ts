@@ -26,6 +26,8 @@ export type State = {
   gpu: GPUState
   framegraph: Framegraph
   legitScriptCompiler: any
+  controls: ImmediateModeControl[]
+  frameControlIndex: 0
 }
 
 export type LegitScriptNameTypePair = {
@@ -34,7 +36,6 @@ export type LegitScriptNameTypePair = {
 }
 
 export type LegitScriptCompiler = {
-
   LegitScriptFrame: (width: number, height: number, time: number) => void
 }
 
@@ -50,6 +51,22 @@ export type LegitScriptShaderDesc = {
 
 export type LegitScriptLoadResult = {
   shader_descs: LegitScriptShaderDesc[]
+}
+
+export type LegitScriptImmediateModeControlCallbacks = {
+  floatSlider: (name: string, prevValue: number, minValue: number, maxValue: number) => number
+  intSlider: (name: string, prevValue: number, minValue: number, maxValue: number) => number
+  text: (value: string) => void
+}
+
+export type ImmediateModeControlType = 'float' | 'int' | 'text'
+export type ImmediateModeControl = {
+  type: ImmediateModeControlType
+  name: string | '@@text'
+  el?: HTMLElement
+  // track whether this control was used in the last frame
+  // if it was not, then it gets removed
+  isAlive?: boolean
 }
 
 export type RaisesErrorFN = (err: string) => void

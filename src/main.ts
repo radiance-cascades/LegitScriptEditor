@@ -5,13 +5,15 @@ import {
   Framegraph,
   FramegraphPass,
   GPUState,
+  ImmediateModeControl,
+  ImmediateModeControlType,
+  LegitScriptImmediateModeControlCallbacks,
   LegitScriptLoadResult,
   RaisesErrorFN,
   State,
 } from "./types"
 
 import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
-
 
 self.MonacoEnvironment = {
   getWorker: function (_moduleId: string, _label: string) {
@@ -49,26 +51,14 @@ void RenderGraphMain()
 
 function CompileLegitScript(
   legitScriptCompiler: LegitScriptCompiler,
-  editor: monaco.editor.ICodeEditor
+  editor: monaco.editor.ICodeEditor,
+  imControls: LegitScriptImmediateModeControlCallbacks
 ): LegitScriptLoadResult | false {
-
-  const imControls = {
-    floatSlider(name, value, lo, hi) {
-      // TODO: wire me up
-      return value
-    },
-    intSlider(name, value, lo, hi) {
-      // TODO: wire me up
-      return value
-    },
-    text(value) {
-      // TODO: wire me up
-    }
-  }
-
   try {
     const content = editor.getModel()?.createSnapshot().read() || ""
-    const r = JSON.parse(legitScriptCompiler.LegitScriptLoad(content, imControls))
+    const r = JSON.parse(
+      legitScriptCompiler.LegitScriptLoad(content, imControls)
+    )
     return r
   } catch (e) {
     console.error(e)
@@ -76,7 +66,12 @@ function CompileLegitScript(
   }
 }
 
-function LegitScriptFrame(legitScriptCompiler: LegitScriptCompiler, width: number, height: number, time: number) {
+function LegitScriptFrame(
+  legitScriptCompiler: LegitScriptCompiler,
+  width: number,
+  height: number,
+  time: number
+) {
   try {
     const raw = legitScriptCompiler.LegitScriptFrame(width, height, time)
     return JSON.parse(raw)
@@ -88,12 +83,11 @@ function LegitScriptFrame(legitScriptCompiler: LegitScriptCompiler, width: numbe
 
 function createDebouncer(delay: number, fn: () => void) {
   let handle = setTimeout(fn, delay)
-  return function() {
+  return function () {
     handle && clearTimeout(handle)
     handle = setTimeout(fn, delay)
   }
 }
-
 
 function CreateFullscreenRenderer(gl: WebGL2RenderingContext) {
   const vertexBuffer = new Float32Array([-1, -1, -1, 4, 4, -1])
@@ -219,7 +213,6 @@ function UpdateFramegraph(
   result: LegitScriptLoadResult,
   raiseError: RaisesErrorFN
 ) {
-
   framegraph.executionOrder = []
   for (const desc of result.shader_descs) {
     // TODO: compute this via dependencies
@@ -267,11 +260,42 @@ function RaiseError(err: string) {
   console.error("RaiseError:", err)
 }
 
+function SliderControlCreate(
+  name: string,
+  value: string,
+  lo: string,
+  hi: string
+): HTMLElement {
+  const el = document.createElement("control")
+
+  const nameEl = document.createElement("span")
+  nameEl.setAttribute("class", "name")
+  nameEl.innerText = ` ${name} `
+  el.append(nameEl)
+
+  const inputEl = document.createElement("input")
+  inputEl.setAttribute("type", "range")
+  inputEl.setAttribute("min", lo)
+  inputEl.setAttribute("max", hi)
+  inputEl.setAttribute("value", value)
+  // TODO: compute this based on slider width
+  const step = 0.001
+  inputEl.setAttribute("step", step + "")
+  el.append(inputEl)
+
+  const labelEl = document.createElement("span")
+  labelEl.setAttribute("class", "value")
+  labelEl.innerText = ` (${value}) `
+  el.append(labelEl)
+  return el
+}
+
 async function Init(
   editorEl: HTMLElement | null,
-  canvasEl: HTMLCanvasElement | null
+  canvasEl: HTMLElement | null,
+  controlsEl: HTMLElement | null
 ) {
-  if (!editorEl || !canvasEl) {
+  if (!editorEl || !canvasEl || !controlsEl) {
     throw new Error("please provide an editor element and canvas element")
   }
 
@@ -286,24 +310,100 @@ async function Init(
 
   const state: State = {
     editor,
-    gpu: InitWebGL(canvasEl),
+    gpu: InitWebGL(canvasEl as HTMLCanvasElement),
     framegraph: {
       passes: {},
-      executionOrder: []
+      executionOrder: [],
     },
-    legitScriptCompiler
+    legitScriptCompiler,
+
+    controls: [],
+    frameControlIndex: 0,
+  }
+
+  function Control(
+    type: ImmediateModeControlType,
+    name: string
+  ): ImmediateModeControl {
+    if (state.frameControlIndex < state.controls.length) {
+      const currentControl = state.controls[state.frameControlIndex]
+      if (currentControl && currentControl.type === type) {
+        if (currentControl.name === name || type === "text") {
+          state.frameControlIndex++
+          currentControl.isAlive = true
+          return currentControl
+        }
+      }
+    }
+
+    const currentControl: ImmediateModeControl = {
+      type,
+      name,
+      isAlive: true,
+    }
+
+    state.controls.push(currentControl)
+    return currentControl
+  }
+
+  const imControls = {
+    floatSlider(name: string, prevValue: number, lo: number, hi: number) {
+      const control = Control("float", name)
+      if (!control.el) {
+        control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
+        controlsEl.append(control.el)
+      }
+
+      let value = prevValue
+      const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
+      const inputEl = control.el.querySelector("input")
+      if (valueDisplayEl && inputEl) {
+        value = parseFloat(inputEl.value)
+        valueDisplayEl.innerText = ` (${value})`
+      }
+      return value
+    },
+    intSlider(name: string, prevValue: number, lo: number, hi: number) {
+      const control = Control("float", name)
+      if (!control.el) {
+        control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
+        controlsEl.append(control.el)
+      }
+
+      let value = prevValue
+      const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
+      const inputEl = control.el.querySelector("input")
+      if (valueDisplayEl && inputEl) {
+        value = parseFloat(inputEl.value)
+        valueDisplayEl.innerText = ` (${value})`
+      }
+      return value
+    },
+    text(value: string) {
+      // console.log(value)
+      // TODO: wire me up
+      return value
+    },
   }
 
   // Initial compilation
   {
-    const compileResult = CompileLegitScript(legitScriptCompiler, editor)
+    const compileResult = CompileLegitScript(
+      legitScriptCompiler,
+      editor,
+      imControls
+    )
     if (compileResult) {
       UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
     }
   }
 
   const typingDebouncer = createDebouncer(250, () => {
-    const compileResult = CompileLegitScript(legitScriptCompiler, editor)
+    const compileResult = CompileLegitScript(
+      legitScriptCompiler,
+      editor,
+      imControls
+    )
     if (compileResult) {
       UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
     }
@@ -320,19 +420,20 @@ function ExecuteFrame(dt: number, state: State) {
   // Ensure we're sized properly w.r.t. pixel ratio
   const rect = gpu.container.getBoundingClientRect()
 
-  if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
-    gpu.dims[0] = rect.width
-    gpu.dims[1] = rect.height
+  // TODO: fix this
+  // if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
+  //   gpu.dims[0] = rect.width
+  //   gpu.dims[1] = rect.height
 
-    const width = Floor(rect.width * window.devicePixelRatio)
-    const height = Floor(rect.height * window.devicePixelRatio)
+  //   const width = Floor(rect.width * window.devicePixelRatio)
+  //   const height = Floor(rect.height * window.devicePixelRatio)
 
-    gpu.canvas.width = width
-    gpu.canvas.height = height
+  //   gpu.canvas.width = width
+  //   gpu.canvas.height = height
 
-    gpu.canvas.style.width = `${rect.width}px`
-    gpu.canvas.style.height = `${rect.height}px`
-  }
+  //   gpu.canvas.style.width = `${rect.width}px`
+  //   gpu.canvas.style.height = `${rect.height}px`
+  // }
 
   const gl = gpu.gl
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -344,23 +445,40 @@ function ExecuteFrame(dt: number, state: State) {
     return
   }
 
-  const legitFrame = LegitScriptFrame(state.legitScriptCompiler, gpu.canvas.width, gpu.canvas.height, dt)
+  // remove dead controls
+  state.controls = state.controls.filter((control) => {
+    if (control.isAlive) {
+      control.isAlive = false
+      return true
+    }
+
+    if (control.el) {
+      console.log("remove control", control)
+      control.el.remove()
+    }
+    return false
+  })
+  state.frameControlIndex = 0
+
+  const legitFrame = LegitScriptFrame(
+    state.legitScriptCompiler,
+    gpu.canvas.width,
+    gpu.canvas.height,
+    dt
+  )
   if (legitFrame) {
-    console.log(legitFrame)
     for (const invocation of legitFrame.shader_invocations) {
-      console.log(invocation)
+      // console.log('invocation', invocation)
+      const pass = state.framegraph.passes[invocation.shader_name]
+      gl.useProgram(pass.program)
+      // gl.uniform1f(gl.getUniformLocation(pass.program, "time"), dt * 0.001)
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
+      gpu.fullScreenRenderer()
     }
   }
 
-  // for (const passName of state.framegraph?.executionOrder ?? []) {
-  //   const pass = state.framegraph.passes[passName]
-  //   gl.useProgram(pass.program)
-  //   // gl.uniform1f(gl.getUniformLocation(pass.program, "time"), dt * 0.001)
-
-  //   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  //   gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
-  //   gpu.fullScreenRenderer()
-  // }
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
@@ -383,6 +501,7 @@ function InitEditor(editorEl: HTMLElement) {
 }
 
 Init(
-  document.getElementById("editor"),
-  document.getElementById("output") as HTMLCanvasElement
+  document.querySelector("#editor"),
+  document.querySelector("output canvas"),
+  document.querySelector("controls")
 )
