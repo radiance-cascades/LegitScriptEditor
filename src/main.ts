@@ -57,16 +57,16 @@ void RenderGraphMain()
     int a = SliderInt("Int param", -42, 42, 5);
     float b = SliderFloat("Float param", -42.0f, 42.0f);
     ColorPass(
-      SliderFloat("R", 0.0f, 1.0f) + 0.5f,
-      SliderFloat("G", 0.0f, 1.0f),
-      SliderFloat("B", 0.0f, 1.0f),
-      SliderFloat("P", 0.0f, 2.0f),
+      SliderFloat("R", 0.0f, 1.0f, 0.5f),
+      SliderFloat("G", 0.0f, 1.0f, 0.5f),
+      SliderFloat("B", 0.0f, 1.0f, 0.5f),
+      SliderFloat("P", 0.0f, 2.0f, 0.7f),
       sc.GetSize().x,
       sc.GetSize().y,
       sc
       );
     //float e = SliderFloat("Float param", -42.0f, 42.0f);
-    Text("script int: " + formatInt(a) + " float: " + formatFloat(b));
+    Text("script int: " + a + " float: " + b);
   }
 }}
 `
