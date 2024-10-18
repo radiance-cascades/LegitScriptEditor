@@ -1,4 +1,5 @@
 # LegitScriptEditor
+Accessible directly from your web browser! https://radiance-cascades.github.io/LegitScriptEditor/
 
 An editor for [LegitScript](https://github.com/Raikiri/LegitScript) with WebGL output.
 
