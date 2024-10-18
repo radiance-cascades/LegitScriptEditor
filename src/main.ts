@@ -56,17 +56,17 @@ void RenderGraphMain()
     Image sc = GetSwapchainImage();
     int a = SliderInt("Int param", -42, 42, 7);
     float b = SliderFloat("Float param", -42.0f, 42.0f);
+    int frame_idx = ContextInt("frame")++;
     ColorPass(
       SliderFloat("R", 0.0f, 1.0f, 0.5f),
       SliderFloat("G", 0.0f, 1.0f, 0.5f),
       SliderFloat("B", 0.0f, 1.0f, 0.5f),
-      SliderFloat("P", 0.0f, 2.0f, 0.7f),
+      SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2,
       sc.GetSize().x,
       sc.GetSize().y,
       sc
       );
-    //float e = SliderFloat("Float param", -42.0f, 42.0f);
-    Text("script int: " + a + " float: " + b);
+    Text("Current time:" + GetTime());
   }
 }}
 `
