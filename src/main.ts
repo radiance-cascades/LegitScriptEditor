@@ -34,7 +34,7 @@ const initialContent = `void ColorPass(in float r, in float g, in float b, in fl
     vec2 s = res;
     int n = int(s.x * 0.5);
     vec2 c = vec2(-0.8, cos(2. * p));
-    vec2 z = vec2(i / float(n) - 1., j / float(n) - 0.5) * 2.;
+    vec2 z = vec2(i / float(n) - 1., j / float(n) - 1.) * 2.;
     int iterations = 0;
     while (sqrt(dot(z, z)) < 20. && iterations < 50) {
       z = complex_sqr(z) + c;
