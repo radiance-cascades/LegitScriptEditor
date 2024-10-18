@@ -249,7 +249,7 @@ function UpdateFramegraph(
       precision highp float;
       ${outputs.join("\n")}
       ${uniforms.join("\n")}
-      ${desc.body}
+      ${desc.body.text}
     `
 
     let pass: FramegraphPass = framegraph.passes[desc.name]
@@ -273,12 +273,7 @@ function UpdateFramegraph(
       fragSource,
       program,
       uniforms: desc.uniforms.map(({name}) => {
-        const loc = gl.getUniformLocation(program, name)
-        if (!loc) {
-          raiseError(`uniform location could not be determined: ${name} `)
-          return null
-        }
-        return loc
+        return gl.getUniformLocation(program, name)
       })
     }
   }

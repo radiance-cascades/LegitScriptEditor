@@ -43,8 +43,18 @@ export type LegitScriptCompiler = {
 export type LegitScriptShaderOutput = LegitScriptNameTypePair
 export type LegitScriptShaderUniform = LegitScriptNameTypePair
 
+export type LegitScriptBlockBody = {
+  text: string
+  start: number
+}
+
+export type LegitScriptDeclaration = {
+  name: string
+  body: LegitScriptBlockBody
+}
+
 export type LegitScriptShaderDesc = {
-  body: string
+  body: LegitScriptBlockBody
   name: string
   outs: LegitScriptShaderOutput[]
   uniforms: LegitScriptShaderUniform[]
@@ -52,6 +62,7 @@ export type LegitScriptShaderDesc = {
 
 export type LegitScriptLoadResult = {
   shader_descs: LegitScriptShaderDesc[]
+  declarations: LegitScriptDeclaration[]
 }
 
 export type LegitScriptImmediateModeControlCallbacks = {
