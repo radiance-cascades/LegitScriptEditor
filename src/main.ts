@@ -47,7 +47,17 @@ const initialContent = `void ColorPass(in float r, in float g, in float b, in fl
   }
 }}
 
+[declaration: "smoothing"]
+{{
+  float SmoothOverTime(float val, string name, float ratio = 0.95)
+  {
+    ContextVec2(name) = ContextVec2(name) * ratio + vec2(val, 1) * (1.0 - ratio);
+    return ContextVec2(name).x / (1e-7f + ContextVec2(name).y);
+  }
+}}
+
 [rendergraph]
+[include: "smoothing"]
 void RenderGraphMain()
 {{
   void main()
@@ -66,7 +76,9 @@ void RenderGraphMain()
       sc.GetSize().y,
       sc
       );
-    Text("Current time:" + GetTime());
+    float dt = GetTime() - ContextFloat("prev_time");
+    ContextFloat("prev_time") = GetTime();
+    Text("Fps: " + 1000.0 / SmoothOverTime(dt, "fps_count"));
   }
 }}
 `
