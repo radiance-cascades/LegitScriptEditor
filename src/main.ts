@@ -56,7 +56,7 @@ void RenderGraphMain()
     Image sc = GetSwapchainImage();
     int a = SliderInt("Int param", -42, 42, 7);
     float b = SliderFloat("Float param", -42.0f, 42.0f);
-    int frame_idx = ContextInt("frame")++;
+    int frame_idx = ContextInt("frame_idx")++;
     ColorPass(
       SliderFloat("R", 0.0f, 1.0f, 0.5f),
       SliderFloat("G", 0.0f, 1.0f, 0.5f),
