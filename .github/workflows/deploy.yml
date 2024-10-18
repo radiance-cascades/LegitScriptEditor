@@ -2,13 +2,13 @@
 name: Deploy static content to Pages
 
 on:
-  # Manual deployment
-  workflow_dispatch:
   # Deployment on every release
-  release:
-    types:
-    - published
-
+  #release:
+  #  types:
+  #  - published
+  push:
+    tags:
+      - "v*.*.*"
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
