@@ -29,6 +29,8 @@ export type State = {
   legitScriptCompiler: any
   controls: ImmediateModeControl[]
   frameControlIndex: 0
+
+  hasCompiledOnce: boolean
 }
 
 export type LegitScriptNameTypePair = {
@@ -63,6 +65,11 @@ export type LegitScriptShaderDesc = {
 export type LegitScriptLoadResult = {
   shader_descs: LegitScriptShaderDesc[]
   declarations: LegitScriptDeclaration[]
+  error: {
+    line: number
+    column: number
+    desc: string
+  }
 }
 
 export type LegitScriptImmediateModeControlCallbacks = {
