@@ -1,4 +1,4 @@
-import { LegitScriptImageRequest, RaisesErrorFN } from "./types"
+import { LegitScriptCachedImageRequest, RaisesErrorFN } from "./types"
 
 export type ImageCacheAllocatedImage = {
   id: number
@@ -58,11 +58,9 @@ function ImageFormatToGL(
   }
 }
 
-export function ImageCacheProcessRequests(
+export function ImageCacheStartFrame(
   gl: WebGL2RenderingContext,
-  cache: ImageCache,
-  requests: LegitScriptImageRequest[],
-  raiseError: RaisesErrorFN
+  cache: ImageCache
 ) {
   const pendingDeletion = new Set<string>()
   for (const [cacheKey, img] of cache.allocatedImages.entries()) {
@@ -71,71 +69,75 @@ export function ImageCacheProcessRequests(
       pendingDeletion.add(cacheKey)
     }
   }
-
-  // this should only contain images requested on this frame
-  cache.requestIdToAllocatedImage.clear()
-
-  for (const request of requests) {
-    const cacheKey = JSON.stringify(request)
-
-    let cachedImg = cache.allocatedImages.get(cacheKey)
-    if (!cachedImg) {
-      const texture = gl.createTexture()
-      if (!texture) {
-        raiseError(`failed to create texture for ${cacheKey}`)
-        continue
-      }
-
-      let imageFormat = ImageFormatToGL(
-        gl,
-        request.pixel_format as AllowedTextureFormats,
-        raiseError
-      )
-      if (!imageFormat) {
-        continue
-      }
-
-      gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        imageFormat.internalFormat,
-        request.size_x,
-        request.size_y,
-        0,
-        imageFormat.format,
-        imageFormat.type,
-        null
-      )
-
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 0)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-
-      const id = cache.id++
-
-      const cachedImg = {
-        id,
-        requestId: request.id,
-        handle: texture,
-        framesSinceLastUse: 0,
-      }
-
-      cache.allocatedImages.set(cacheKey, cachedImg)
-      cache.requestIdToAllocatedImage.set(request.id, cachedImg)
-    } else {
-      cachedImg.framesSinceLastUse = 0
-      cache.requestIdToAllocatedImage.set(request.id, cachedImg)
-    }
-  }
-
   for (const cacheKey of Array.from(pendingDeletion)) {
     const entry = cache.allocatedImages.get(cacheKey)
     if (entry) {
       gl.deleteTexture(entry.handle)
       cache.allocatedImages.delete(cacheKey)
     }
+  }
+
+  // this should only contain images requested on this frame
+  cache.requestIdToAllocatedImage.clear()
+}
+
+export function ImageCacheProcessRequest(
+  gl: WebGL2RenderingContext,
+  cache: ImageCache,
+  request: LegitScriptCachedImageRequest,
+  raiseError: RaisesErrorFN
+) {
+  const cacheKey = JSON.stringify(request)
+
+  let cachedImg = cache.allocatedImages.get(cacheKey)
+  if (!cachedImg) {
+    const texture = gl.createTexture()
+    if (!texture) {
+      raiseError(`failed to create texture for ${cacheKey}`)
+      return
+    }
+
+    let imageFormat = ImageFormatToGL(
+      gl,
+      request.pixel_format as AllowedTextureFormats,
+      raiseError
+    )
+    if (!imageFormat) {
+      return
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      imageFormat.internalFormat,
+      request.size.x,
+      request.size.y,
+      0,
+      imageFormat.format,
+      imageFormat.type,
+      null
+    )
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 0)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+
+    const id = cache.id++
+
+    const cachedImg = {
+      id,
+      requestId: request.id,
+      handle: texture,
+      framesSinceLastUse: 0,
+    }
+
+    cache.allocatedImages.set(cacheKey, cachedImg)
+    cache.requestIdToAllocatedImage.set(request.id, cachedImg)
+  } else {
+    cachedImg.framesSinceLastUse = 0
+    cache.requestIdToAllocatedImage.set(request.id, cachedImg)
   }
 }
 

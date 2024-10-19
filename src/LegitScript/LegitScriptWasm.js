@@ -2518,131 +2518,6 @@ function dbg(text) {
       });
     };
 
-  var emval_symbols = {
-  };
-  
-  var getStringOrSymbol = (address) => {
-      var symbol = emval_symbols[address];
-      if (symbol === undefined) {
-        return readLatin1String(address);
-      }
-      return symbol;
-    };
-  
-  var emval_methodCallers = [];
-  
-  var __emval_call_method = (caller, objHandle, methodName, destructorsRef, args) => {
-      caller = emval_methodCallers[caller];
-      objHandle = Emval.toValue(objHandle);
-      methodName = getStringOrSymbol(methodName);
-      return caller(objHandle, objHandle[methodName], destructorsRef, args);
-    };
-
-
-  var emval_addMethodCaller = (caller) => {
-      var id = emval_methodCallers.length;
-      emval_methodCallers.push(caller);
-      return id;
-    };
-  
-  
-  
-  var requireRegisteredType = (rawType, humanName) => {
-      var impl = registeredTypes[rawType];
-      if (undefined === impl) {
-          throwBindingError(humanName + " has unknown type " + getTypeName(rawType));
-      }
-      return impl;
-    };
-  var emval_lookupTypes = (argCount, argTypes) => {
-      var a = new Array(argCount);
-      for (var i = 0; i < argCount; ++i) {
-        a[i] = requireRegisteredType(HEAPU32[(((argTypes)+(i * 4))>>2)],
-                                     "parameter " + i);
-      }
-      return a;
-    };
-  
-  
-  var reflectConstruct = Reflect.construct;
-  
-  var emval_returnValue = (returnType, destructorsRef, handle) => {
-      var destructors = [];
-      var result = returnType['toWireType'](destructors, handle);
-      if (destructors.length) {
-        // void, primitives and any other types w/o destructors don't need to allocate a handle
-        HEAPU32[((destructorsRef)>>2)] = Emval.toHandle(destructors);
-      }
-      return result;
-    };
-  
-  var __emval_get_method_caller = (argCount, argTypes, kind) => {
-      var types = emval_lookupTypes(argCount, argTypes);
-      var retType = types.shift();
-      argCount--; // remove the shifted off return type
-  
-      var functionBody =
-        `return function (obj, func, destructorsRef, args) {\n`;
-  
-      var offset = 0;
-      var argsList = []; // 'obj?, arg0, arg1, arg2, ... , argN'
-      if (kind === /* FUNCTION */ 0) {
-        argsList.push("obj");
-      }
-      var params = ["retType"];
-      var args = [retType];
-      for (var i = 0; i < argCount; ++i) {
-        argsList.push("arg" + i);
-        params.push("argType" + i);
-        args.push(types[i]);
-        functionBody +=
-          `  var arg${i} = argType${i}.readValueFromPointer(args${offset ? "+" + offset : ""});\n`;
-        offset += types[i]['argPackAdvance'];
-      }
-      var invoker = kind === /* CONSTRUCTOR */ 1 ? 'new func' : 'func.call';
-      functionBody +=
-        `  var rv = ${invoker}(${argsList.join(", ")});\n`;
-      for (var i = 0; i < argCount; ++i) {
-        if (types[i]['deleteObject']) {
-          functionBody +=
-            `  argType${i}.deleteObject(arg${i});\n`;
-        }
-      }
-      if (!retType.isVoid) {
-        params.push("emval_returnValue");
-        args.push(emval_returnValue);
-        functionBody +=
-          "  return emval_returnValue(retType, destructorsRef, rv);\n";
-      }
-      functionBody +=
-        "};\n";
-  
-      params.push(functionBody);
-      var invokerFunction = newFunc(Function, params).apply(null, args);
-      var functionName = `methodCaller<(${types.map(t => t.name).join(', ')}) => ${retType.name}>`;
-      return emval_addMethodCaller(createNamedFunction(functionName, invokerFunction));
-    };
-
-  var __emval_incref = (handle) => {
-      if (handle > 4) {
-        emval_handles.get(handle).refcount += 1;
-      }
-    };
-
-  
-  
-  var __emval_run_destructors = (handle) => {
-      var destructors = Emval.toValue(handle);
-      runDestructors(destructors);
-      __emval_decref(handle);
-    };
-
-  
-  var __emval_take_value = (type, arg) => {
-      type = requireRegisteredType(type, '_emval_take_value');
-      var v = type['readValueFromPointer'](arg);
-      return Emval.toHandle(v);
-    };
 
   var _abort = () => {
       abort('native code called abort()');
@@ -5957,17 +5832,7 @@ var wasmImports = {
   /** @export */
   _embind_register_void: __embind_register_void,
   /** @export */
-  _emval_call_method: __emval_call_method,
-  /** @export */
   _emval_decref: __emval_decref,
-  /** @export */
-  _emval_get_method_caller: __emval_get_method_caller,
-  /** @export */
-  _emval_incref: __emval_incref,
-  /** @export */
-  _emval_run_destructors: __emval_run_destructors,
-  /** @export */
-  _emval_take_value: __emval_take_value,
   /** @export */
   abort: _abort,
   /** @export */
@@ -5996,10 +5861,6 @@ var wasmImports = {
   invoke_fi: invoke_fi,
   /** @export */
   invoke_fiii: invoke_fiii,
-  /** @export */
-  invoke_fiiiii: invoke_fiiiii,
-  /** @export */
-  invoke_fiiiiii: invoke_fiiiiii,
   /** @export */
   invoke_i: invoke_i,
   /** @export */
@@ -6067,8 +5928,6 @@ var wasmImports = {
   /** @export */
   invoke_viii: invoke_viii,
   /** @export */
-  invoke_viiif: invoke_viiif,
-  /** @export */
   invoke_viiii: invoke_viiii,
   /** @export */
   invoke_viiiii: invoke_viiiii,
@@ -6101,9 +5960,9 @@ var wasmExports = createWasm();
 var ___wasm_call_ctors = createExportWrapper('__wasm_call_ctors');
 var _malloc = createExportWrapper('malloc');
 var ___cxa_free_exception = createExportWrapper('__cxa_free_exception');
+var ___errno_location = createExportWrapper('__errno_location');
 var _free = Module['_free'] = createExportWrapper('free');
 var ___getTypeName = createExportWrapper('__getTypeName');
-var ___errno_location = createExportWrapper('__errno_location');
 var _fflush = Module['_fflush'] = createExportWrapper('fflush');
 var _setThrew = createExportWrapper('setThrew');
 var setTempRet0 = createExportWrapper('setTempRet0');
@@ -6139,21 +5998,10 @@ var dynCall_jiji = Module['dynCall_jiji'] = createExportWrapper('dynCall_jiji');
 var dynCall_iiiiijj = Module['dynCall_iiiiijj'] = createExportWrapper('dynCall_iiiiijj');
 var dynCall_iiiiiijj = Module['dynCall_iiiiiijj'] = createExportWrapper('dynCall_iiiiiijj');
 
-function invoke_ii(index,a1) {
+function invoke_vii(index,a1,a2) {
   var sp = stackSave();
   try {
-    return getWasmTableEntry(index)(a1);
-  } catch(e) {
-    stackRestore(sp);
-    if (!(e instanceof EmscriptenEH)) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_vi(index,a1) {
-  var sp = stackSave();
-  try {
-    getWasmTableEntry(index)(a1);
+    getWasmTableEntry(index)(a1,a2);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -6165,28 +6013,6 @@ function invoke_iii(index,a1,a2) {
   var sp = stackSave();
   try {
     return getWasmTableEntry(index)(a1,a2);
-  } catch(e) {
-    stackRestore(sp);
-    if (!(e instanceof EmscriptenEH)) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_viii(index,a1,a2,a3) {
-  var sp = stackSave();
-  try {
-    getWasmTableEntry(index)(a1,a2,a3);
-  } catch(e) {
-    stackRestore(sp);
-    if (!(e instanceof EmscriptenEH)) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_vii(index,a1,a2) {
-  var sp = stackSave();
-  try {
-    getWasmTableEntry(index)(a1,a2);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -6216,6 +6042,17 @@ function invoke_v(index) {
   }
 }
 
+function invoke_ii(index,a1) {
+  var sp = stackSave();
+  try {
+    return getWasmTableEntry(index)(a1);
+  } catch(e) {
+    stackRestore(sp);
+    if (!(e instanceof EmscriptenEH)) throw e;
+    _setThrew(1, 0);
+  }
+}
+
 function invoke_viiii(index,a1,a2,a3,a4) {
   var sp = stackSave();
   try {
@@ -6227,10 +6064,10 @@ function invoke_viiii(index,a1,a2,a3,a4) {
   }
 }
 
-function invoke_viiif(index,a1,a2,a3,a4) {
+function invoke_viii(index,a1,a2,a3) {
   var sp = stackSave();
   try {
-    getWasmTableEntry(index)(a1,a2,a3,a4);
+    getWasmTableEntry(index)(a1,a2,a3);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -6238,21 +6075,10 @@ function invoke_viiif(index,a1,a2,a3,a4) {
   }
 }
 
-function invoke_fiiiiii(index,a1,a2,a3,a4,a5,a6) {
+function invoke_vi(index,a1) {
   var sp = stackSave();
   try {
-    return getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6);
-  } catch(e) {
-    stackRestore(sp);
-    if (!(e instanceof EmscriptenEH)) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_iiiiiii(index,a1,a2,a3,a4,a5,a6) {
-  var sp = stackSave();
-  try {
-    return getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6);
+    getWasmTableEntry(index)(a1);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -6315,10 +6141,21 @@ function invoke_i(index) {
   }
 }
 
-function invoke_fiiiii(index,a1,a2,a3,a4,a5) {
+function invoke_viiiiiii(index,a1,a2,a3,a4,a5,a6,a7) {
   var sp = stackSave();
   try {
-    return getWasmTableEntry(index)(a1,a2,a3,a4,a5);
+    getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7);
+  } catch(e) {
+    stackRestore(sp);
+    if (!(e instanceof EmscriptenEH)) throw e;
+    _setThrew(1, 0);
+  }
+}
+
+function invoke_iiiiiii(index,a1,a2,a3,a4,a5,a6) {
+  var sp = stackSave();
+  try {
+    return getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -6330,17 +6167,6 @@ function invoke_vif(index,a1,a2) {
   var sp = stackSave();
   try {
     getWasmTableEntry(index)(a1,a2);
-  } catch(e) {
-    stackRestore(sp);
-    if (!(e instanceof EmscriptenEH)) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_viiiiiii(index,a1,a2,a3,a4,a5,a6,a7) {
-  var sp = stackSave();
-  try {
-    getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7);
   } catch(e) {
     stackRestore(sp);
     if (!(e instanceof EmscriptenEH)) throw e;
@@ -6881,6 +6707,7 @@ var missingLibrarySymbols = [
   'writeStringToMemory',
   'writeAsciiToMemory',
   'getFunctionArgsName',
+  'requireRegisteredType',
   'init_embind',
   'getBasestPointer',
   'registerInheritedInstance',
@@ -6913,7 +6740,11 @@ var missingLibrarySymbols = [
   'char_0',
   'char_9',
   'makeLegalFunctionName',
+  'getStringOrSymbol',
   'emval_get_global',
+  'emval_returnValue',
+  'emval_lookupTypes',
+  'emval_addMethodCaller',
 ];
 missingLibrarySymbols.forEach(missingLibrarySymbol)
 
@@ -7068,7 +6899,6 @@ var unexportedSymbols = [
   'getTypeName',
   'getFunctionName',
   'heap32VectorToArray',
-  'requireRegisteredType',
   'usesDestructorStack',
   'createJsInvoker',
   'UnboundTypeError',
@@ -7100,12 +6930,8 @@ var unexportedSymbols = [
   'emval_symbols',
   'init_emval',
   'count_emval_handles',
-  'getStringOrSymbol',
   'Emval',
-  'emval_returnValue',
-  'emval_lookupTypes',
   'emval_methodCallers',
-  'emval_addMethodCaller',
   'reflectConstruct',
 ];
 unexportedSymbols.forEach(unexportedRuntimeSymbol);

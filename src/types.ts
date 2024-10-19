@@ -67,13 +67,6 @@ export type LegitScriptLoadResult = {
   }
 }
 
-export type LegitScriptImageRequest = {
-  id: number
-  pixel_format: string
-  size_x: number
-  size_y: number
-}
-
 export type LegitScriptShaderInvocationColorAttachment = {
   id: number
   mip_start: number
@@ -98,9 +91,65 @@ export type LegitScriptShaderInvocation = {
   shader_name: string
 }
 
+export type ivec2 = {x : number, y : number}
+export type ivec3 = {x : number, y : number, z : number}
+export type ivec4 = {x : number, y : number, z : number, w : number}
+export type vec2 = {x : number, y : number}
+export type vec3 = {x : number, y : number, z : number}
+export type vec4 = {x : number, y : number, z : number, w : number}
+
+export type LegitScriptFloatRequest = {
+  name : string
+  type : 'FloatRequest'
+  minVal : number
+  maxVal : number
+  defVal : number
+}
+export type LegitScriptIntRequest = {
+  name : string
+  type : 'IntRequest'
+  minVal : number
+  maxVal : number
+  defVal : number
+}
+export type LegitScriptBoolRequest = {
+  name : string
+  type : 'BoolRequest'
+  defVal : boolean
+}
+export type LegitScriptTextRequest = {
+  name : string
+  type : 'TextRequest'
+}
+export type LegitScriptCachedImageRequest = {
+  id: number
+  type : 'CachedImageRequest'
+  pixel_format: string
+  size : ivec2
+}
+export type LegitScriptLoadedImageRequest = {
+  filename : string
+  type : 'LoadedImageRequest'
+  id : number
+}
+
+export type LegitScriptContextInput = {
+  name : string
+  type : string
+  value : number
+  // | vec2 | vec3 | vec4 | ivec2 | ivec3 | ivec4
+}
+
+export type LegitScriptContextRequest = 
+  LegitScriptFloatRequest |
+  LegitScriptIntRequest |
+  LegitScriptBoolRequest |
+  LegitScriptTextRequest |
+  LegitScriptCachedImageRequest |
+  LegitScriptLoadedImageRequest
+
 export type LegitScriptFrameResult = {
-  cached_img_requests: LegitScriptImageRequest[]
-  loaded_img_requests: LegitScriptImageRequest[]
+  context_requests: LegitScriptContextRequest[]
   shader_invocations: LegitScriptShaderInvocation[]
 }
 

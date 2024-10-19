@@ -8,6 +8,7 @@ import {
   ImmediateModeControl,
   ImmediateModeControlType,
   LegitScriptFrameResult,
+  LegitScriptContextInput,
   LegitScriptImmediateModeControlCallbacks,
   LegitScriptLoadResult,
   RaisesErrorFN,
@@ -19,7 +20,8 @@ import {
   ImageCache,
   ImageCacheAllocatedImage,
   ImageCacheGetImage,
-  ImageCacheProcessRequests,
+  ImageCacheStartFrame,
+  ImageCacheProcessRequest,
 } from "./image-cache.js"
 
 export type State = {
@@ -27,6 +29,7 @@ export type State = {
   gpu: GPUState
   framegraph: Framegraph
   legitScriptCompiler: any
+  processedRequests : LegitScriptContextInput[]
   controls: ImmediateModeControl[]
   frameControlIndex: 0
   imageCache: ImageCache
@@ -119,7 +122,7 @@ void RenderGraphMain()
 
     float dt = GetTime() - ContextFloat("prev_time");
     ContextFloat("prev_time") = GetTime();
-    Text("Fps: " + 1000.0 / SmoothOverTime(dt, "fps_count"));
+    Text("Fps: " + 1000.0 / (1e-7f + SmoothOverTime(dt, "fps_count")));
     Text("dims: " + sc.GetSize().x + ", " + sc.GetSize().y);
   }
 }}
@@ -149,7 +152,7 @@ function LegitScriptFrame(
   time: number
 ): LegitScriptFrameResult | false {
   try {
-    const raw = legitScriptCompiler.LegitScriptFrame(width, height, time)
+    const raw = legitScriptCompiler.LegitScriptFrame('[{"name": "@swapchain_size", "type": "ivec2", "value":{"x":512, "y":512}}]')
     return JSON.parse(raw)
   } catch (e) {
     console.error(e)
@@ -403,6 +406,7 @@ async function Init(
       passes: {},
     },
     legitScriptCompiler,
+    processedRequests: [],
     controls: [],
     frameControlIndex: 0,
     imageCache: {
@@ -603,12 +607,20 @@ function ExecuteFrame(dt: number, state: State) {
 
   if (legitFrame) {
     try {
-      ImageCacheProcessRequests(
+      ImageCacheStartFrame(
         state.gpu.gl,
         state.imageCache,
-        legitFrame.cached_img_requests,
-        console.error
       )
+      for(const request of legitFrame.context_requests){
+        if(request.type === 'CachedImageRequest'){
+          ImageCacheProcessRequest(
+            state.gpu.gl,
+            state.imageCache,
+            request,
+            console.error
+          )
+        }
+      }
       for (const invocation of legitFrame.shader_invocations) {
         const pass = state.framegraph.passes[invocation.shader_name]
         gl.useProgram(pass.program)
