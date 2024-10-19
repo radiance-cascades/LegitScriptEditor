@@ -72,6 +72,9 @@ export function ImageCacheProcessRequests(
     }
   }
 
+  // this should only contain images requested on this frame
+  cache.requestIdToAllocatedImage.clear()
+
   for (const request of requests) {
     const cacheKey = JSON.stringify(request)
 
@@ -123,7 +126,7 @@ export function ImageCacheProcessRequests(
       cache.requestIdToAllocatedImage.set(request.id, cachedImg)
     } else {
       cachedImg.framesSinceLastUse = 0
-      console.log("reuse", cacheKey)
+      cache.requestIdToAllocatedImage.set(request.id, cachedImg)
     }
   }
 
@@ -132,7 +135,6 @@ export function ImageCacheProcessRequests(
     if (entry) {
       gl.deleteTexture(entry.handle)
       cache.allocatedImages.delete(cacheKey)
-      cache.requestIdToAllocatedImage.delete(entry.requestId)
     }
   }
 }

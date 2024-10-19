@@ -11,6 +11,7 @@ export type FramegraphPass = {
   fragSource: string
   program: WebGLProgram
   uniforms: (WebGLUniformLocation | null)[]
+  samplers: (WebGLUniformLocation | null)[]
 }
 
 export type FramegraphPasses = {
@@ -19,18 +20,6 @@ export type FramegraphPasses = {
 
 export type Framegraph = {
   passes: FramegraphPasses
-  executionOrder: string[]
-}
-
-export type State = {
-  editor: any
-  gpu: GPUState
-  framegraph: Framegraph
-  legitScriptCompiler: any
-  controls: ImmediateModeControl[]
-  frameControlIndex: 0
-
-  hasCompiledOnce: boolean
 }
 
 export type LegitScriptNameTypePair = {
@@ -55,11 +44,17 @@ export type LegitScriptDeclaration = {
   body: LegitScriptBlockBody
 }
 
+export type LegitScriptShaderSampler = {
+  name: string
+  type: 'sampler2D'
+}
+
 export type LegitScriptShaderDesc = {
   body: LegitScriptBlockBody
   name: string
   outs: LegitScriptShaderOutput[]
   uniforms: LegitScriptShaderUniform[]
+  samplers: LegitScriptShaderSampler[]
 }
 
 export type LegitScriptLoadResult = {
@@ -70,6 +65,43 @@ export type LegitScriptLoadResult = {
     column: number
     desc: string
   }
+}
+
+export type LegitScriptImageRequest = {
+  id: number
+  pixel_format: string
+  size_x: number
+  size_y: number
+}
+
+export type LegitScriptShaderInvocationColorAttachment = {
+  id: number
+  mip_start: number
+  mip_end: number
+}
+
+export type LegitScriptShaderInvocationUniform = {
+  type: string
+  val: number
+}
+
+export type LegitScriptShaderInvocationSamplerBinding = {
+  id: number
+  // TODO: mip_start, mip_end
+};
+
+export type LegitScriptShaderInvocation = {
+  color_attachments: LegitScriptShaderInvocationColorAttachment[]
+  // unavailable in webgl: image_sampler_bindings
+  uniforms: LegitScriptShaderInvocationUniform[]
+  image_sampler_bindings: LegitScriptShaderInvocationSamplerBinding[]
+  shader_name: string
+}
+
+export type LegitScriptFrameResult = {
+  cached_img_requests: LegitScriptImageRequest[]
+  loaded_img_requests: LegitScriptImageRequest[]
+  shader_invocations: LegitScriptShaderInvocation[]
 }
 
 export type LegitScriptImmediateModeControlCallbacks = {
