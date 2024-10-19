@@ -12,6 +12,7 @@ export type FramegraphPass = {
   program: WebGLProgram
   uniforms: (WebGLUniformLocation | null)[]
   samplers: (WebGLUniformLocation | null)[]
+  fboAttachmentIds: number[]
 }
 
 export type FramegraphPasses = {
