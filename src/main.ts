@@ -39,7 +39,18 @@ self.MonacoEnvironment = {
   },
 }
 
-const initialContent = `void ColorPass(in float r, in float g, in float b, in float p, in int width, in int height, sampler2D background, sampler2D tex1, sampler2D tex2, out vec4 out_color)
+const initialContent = `void ColorPass(
+  in float r,
+  in float g,
+  in float b,
+  in float p,
+  in int width,
+  in int height,
+  sampler2D background,
+  sampler2D tex1,
+  sampler2D tex2,
+  out vec4 out_color
+)
 {{
   vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }
   void main()
@@ -396,6 +407,42 @@ function RaiseError(err: string) {
   console.error("RaiseError:", err)
 }
 
+function AttachDragger(
+  dragEl: HTMLElement,
+  resizeTarget: HTMLElement,
+  cb: (rect: DOMRect) => void
+) {
+
+  const dragWidth = dragEl.getBoundingClientRect().width
+
+  let down = false
+  dragEl.addEventListener(
+    "mousedown",
+    (e) => {
+      down = true
+      e.preventDefault()
+    },
+    { passive: false }
+  )
+  window.addEventListener("mouseup", (_) => {
+    down = false
+  })
+  window.addEventListener("mousemove", (e) => {
+    const parentEl = dragEl.parentElement
+    if (!down || !parentEl) {
+      return
+    }
+
+    const parentRect = parentEl.getBoundingClientRect()
+    const parentLeft = parentRect.left
+    const newWidth = e.clientX - parentLeft - dragWidth / 2
+    resizeTarget.style.width = `${newWidth.toFixed(0)}px`
+    resizeTarget.style.flexGrow = "0"
+    parentRect.width = newWidth
+    cb(parentRect)
+  })
+}
+
 function SliderControlCreate(
   name: string,
   value: string,
@@ -429,9 +476,10 @@ function SliderControlCreate(
 async function Init(
   editorEl: HTMLElement | null,
   canvasEl: HTMLElement | null,
-  controlsEl: HTMLElement | null
+  controlsEl: HTMLElement | null,
+  draggerEl: HTMLElement | null
 ) {
-  if (!editorEl || !canvasEl || !controlsEl) {
+  if (!editorEl || !canvasEl || !controlsEl || !draggerEl) {
     throw new Error("please provide an editor element and canvas element")
   }
 
@@ -441,6 +489,14 @@ async function Init(
   if (!editor) {
     throw new Error("could not initialize monaco")
   }
+
+  const editorResizeHandler = CreateEditorResizeHandler(editor, editorEl)
+  window.addEventListener("resize", editorResizeHandler)
+  editorResizeHandler()
+
+  AttachDragger(draggerEl, editorEl, (rect: DOMRect) => {
+    editor.layout({ width: rect.width, height: rect.height })
+  })
 
   editor.focus()
 
@@ -723,14 +779,7 @@ function ExecuteFrame(dt: number, state: State) {
               0
             )
           }
-
-          if (
-            gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE
-          ) {
-            reportError(gl.getError())
-            continue
-          }
-
+          // TODO: handle framebuffer completeness
           gl.drawBuffers(pass.fboAttachmentIds)
         }
 
@@ -756,16 +805,30 @@ function InitEditor(editorEl: HTMLElement) {
       enabled: false,
     },
     tabSize: 2,
-    automaticLayout: true,
+    automaticLayout: false,
     theme: "vs-dark",
-    glyphMargin: true,
+    glyphMargin: false,
   })
 
   return editor
 }
 
+function CreateEditorResizeHandler(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  editorEl: HTMLElement
+) {
+  return () => {
+    // editor.layout({ width: 0, height: 0 })
+    window.requestAnimationFrame(() => {
+      const { width, height } = editorEl.getBoundingClientRect()
+      editor.layout({ width, height })
+    })
+  }
+}
+
 Init(
   document.querySelector("#editor"),
   document.querySelector("output canvas"),
-  document.querySelector("controls")
+  document.querySelector("controls"),
+  document.querySelector("divider")
 )
