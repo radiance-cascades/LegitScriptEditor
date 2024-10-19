@@ -33,6 +33,15 @@ body {
   flex: 2;
 }
 
+#app #editor .compileErrorGlyph {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
+#app #editor .compileErrorBackground {
+  /* background-color: red; */
+}
+
+
 #app output {
   height: 100%;
   width: 100%;

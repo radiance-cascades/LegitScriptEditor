@@ -7,14 +7,31 @@ import {
   GPUState,
   ImmediateModeControl,
   ImmediateModeControlType,
+  LegitScriptFrameResult,
   LegitScriptImmediateModeControlCallbacks,
   LegitScriptLoadResult,
   RaisesErrorFN,
-  State,
 } from "./types"
 
 // @ts-ignore
 import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
+import {
+  ImageCache,
+  ImageCacheAllocatedImage,
+  ImageCacheGetImage,
+  ImageCacheProcessRequests,
+} from "./image-cache.js"
+
+export type State = {
+  editor: any
+  gpu: GPUState
+  framegraph: Framegraph
+  legitScriptCompiler: any
+  controls: ImmediateModeControl[]
+  frameControlIndex: 0
+  imageCache: ImageCache
+  hasCompiledOnce: boolean
+}
 
 self.MonacoEnvironment = {
   getWorker: function (_moduleId: string, _label: string) {
@@ -22,9 +39,9 @@ self.MonacoEnvironment = {
   },
 }
 
-const initialContent = `void ColorPass(in float r, in float g, in float b, in float p, in int width, in int height, out vec4 out_color)
+const initialContent = `void ColorPass(in float r, in float g, in float b, in float p, in int width, in int height, sampler2D background, out vec4 out_color)
 {{
-  vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }  
+  vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }
   void main()
   {
     vec2 res = vec2(width, height);
@@ -43,7 +60,19 @@ const initialContent = `void ColorPass(in float r, in float g, in float b, in fl
     vec4 fractal = vec4(float(iterations) - log2(0.5 * log(dot(z, z)) / log(20.0))) * 0.02;
     fractal.a = 1.;
     out_color.rgb = fractal.xyz * vec3(r, g, b);
+    out_color.rgb = mix(out_color.rgb , texture(background, uv).rgb, 1.0 - length(out_color.rgb));
     out_color.a = 1.;
+  }
+}}
+
+void DEBUGPassUV(in int width, in int height, out vec4 out_color)
+{{
+  vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }
+  void main()
+  {
+    vec2 res = vec2(width, height);
+    vec2 uv = gl_FragCoord.xy / res.xy;
+    out_color = vec4(uv, 0.0, 1.0);
   }
 }}
 
@@ -67,6 +96,15 @@ void RenderGraphMain()
     int a = SliderInt("Int param", -42, 42, 7);
     float b = SliderFloat("Float param", -42.0f, 42.0f);
     int frame_idx = ContextInt("frame_idx")++;
+
+    Image uvImage = GetImage(sc.GetSize(), rgba8);
+
+    DEBUGPassUV(
+      uvImage.GetSize().x,
+      uvImage.GetSize().y,
+      uvImage
+    );
+
     ColorPass(
       SliderFloat("R", 0.0f, 1.0f, 0.5f),
       SliderFloat("G", 0.0f, 1.0f, 0.5f),
@@ -74,11 +112,15 @@ void RenderGraphMain()
       SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2,
       sc.GetSize().x,
       sc.GetSize().y,
+      uvImage,
       sc
-      );
+    );
+
+
     float dt = GetTime() - ContextFloat("prev_time");
     ContextFloat("prev_time") = GetTime();
     Text("Fps: " + 1000.0 / SmoothOverTime(dt, "fps_count"));
+    Text("dims: " + sc.GetSize().x + ", " + sc.GetSize().y);
   }
 }}
 `
@@ -105,7 +147,7 @@ function LegitScriptFrame(
   width: number,
   height: number,
   time: number
-) {
+): LegitScriptFrameResult | false {
   try {
     const raw = legitScriptCompiler.LegitScriptFrame(width, height, time)
     return JSON.parse(raw)
@@ -244,23 +286,28 @@ function InitWebGL(canvas: HTMLCanvasElement): GPUState {
 function UpdateFramegraph(
   { gl }: GPUState,
   framegraph: Framegraph,
-  result: LegitScriptLoadResult,
+  result: LegitScriptLoadResult | undefined,
   raiseError: RaisesErrorFN
 ) {
-  framegraph.executionOrder = []
-  for (const desc of result.shader_descs) {
-    // TODO: compute this via dependencies
-    framegraph.executionOrder.push(desc.name)
+  if (!result) {
+    return
+  }
 
+  for (const desc of result.shader_descs || []) {
     const outputs = desc.outs.map(({ name, type }) => `out ${type} ${name};\n`)
     const uniforms = desc.uniforms.map(
       ({ name, type }) => `uniform ${type} ${name};\n`
     )
+    const samplers = desc.samplers.map(
+      ({ name, type }) => `uniform ${type} ${name};`
+    )
 
     const fragSource = `#version 300 es
       precision highp float;
+      precision highp sampler2D;
       ${outputs.join("\n")}
       ${uniforms.join("\n")}
+      ${samplers.join("\n")}
       ${desc.body.text}
     `
 
@@ -273,7 +320,10 @@ function UpdateFramegraph(
 
     const program = CreateRasterProgram(gl, fragSource)
     if (!program) {
-      raiseError("CreateRasterProgram returned an invalid program")
+      raiseError(
+        `CreateRasterProgram returned an invalid program\nsource:\n${fragSource}`
+      )
+
       continue
     }
 
@@ -284,13 +334,14 @@ function UpdateFramegraph(
     framegraph.passes[desc.name] = {
       fragSource,
       program,
-      uniforms: desc.uniforms.map(({name}) => {
+      uniforms: desc.uniforms.map(({ name }) => {
         return gl.getUniformLocation(program, name)
-      })
+      }),
+      samplers: desc.samplers.map(({ name }) => {
+        return gl.getUniformLocation(program, name)
+      }),
     }
   }
-
-  console.log(framegraph)
 }
 
 function RaiseError(err: string) {
@@ -350,12 +401,16 @@ async function Init(
     gpu: InitWebGL(canvasEl as HTMLCanvasElement),
     framegraph: {
       passes: {},
-      executionOrder: [],
     },
     legitScriptCompiler,
-
     controls: [],
     frameControlIndex: 0,
+    imageCache: {
+      id: 0,
+      allocatedImages: new Map<string, ImageCacheAllocatedImage>(),
+      requestIdToAllocatedImage: new Map<number, ImageCacheAllocatedImage>(),
+    },
+    hasCompiledOnce: false,
   }
 
   function Control(
@@ -419,7 +474,7 @@ async function Init(
     text(value: string) {
       const control = Control("float", null)
       if (!control.el) {
-        control.el = document.createElement('control')
+        control.el = document.createElement("control")
         controlsEl.append(control.el)
       }
 
@@ -427,54 +482,93 @@ async function Init(
     },
   }
 
-  // Initial compilation
-  {
+  const decorations = editor.createDecorationsCollection([])
+  const typingDebouncer = createDebouncer(100, () => {
     const compileResult = CompileLegitScript(
       legitScriptCompiler,
       editor,
       imControls
     )
     if (compileResult) {
-      UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
-    }
-  }
+      if (compileResult.error) {
+        console.error("compileResult", compileResult)
+        const { line, column, desc } = compileResult.error
 
-  const typingDebouncer = createDebouncer(250, () => {
-    const compileResult = CompileLegitScript(
-      legitScriptCompiler,
-      editor,
-      imControls
-    )
-    if (compileResult) {
-      UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
+        decorations.set([
+          {
+            range: new monaco.Range(line, 1, line, 1),
+            options: {
+              isWholeLine: true,
+              className: "compileErrorGlyph",
+              glyphMarginClassName: "compileErrorBackground",
+            },
+          },
+        ])
+
+        const markers = [
+          {
+            message: desc,
+            severity: monaco.MarkerSeverity.Error,
+            startLineNumber: line,
+            startColumn: column,
+            endLineNumber: line,
+            endColumn: column + 1,
+          },
+        ]
+
+        const model = editor.getModel()
+        if (model) {
+          monaco.editor.setModelMarkers(model, "legitscript", markers)
+          const visibleRange = editor.getVisibleRanges()[0]
+          if (
+            !visibleRange ||
+            visibleRange.startLineNumber > line ||
+            visibleRange.endLineNumber < line
+          ) {
+            editor.revealLineInCenter(line)
+          }
+        }
+      } else {
+        state.hasCompiledOnce = true
+        const model = editor.getModel()
+        if (model) {
+          monaco.editor.setModelMarkers(model, "legitscript", [])
+          decorations.set([])
+        }
+        UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
+      }
     }
   })
 
   editor.getModel()?.onDidChangeContent(typingDebouncer)
-
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
-
 function ExecuteFrame(dt: number, state: State) {
+  if (!state.hasCompiledOnce) {
+    // TODO: render a placeholder image "sorry, the shader didn't compile" or something
+    requestAnimationFrame((dt) => ExecuteFrame(dt, state))
+    return
+  }
+
   const gpu = state.gpu
 
   // TODO: fix this, position:relative causes pain w.r.t. flexbox
   // Ensure we're sized properly w.r.t. pixel ratio
-  //const rect = gpu.container.getBoundingClientRect()
-  // if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
-  //   gpu.dims[0] = rect.width
-  //   gpu.dims[1] = rect.height
+  const rect = gpu.container.getBoundingClientRect()
+  if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
+    gpu.dims[0] = rect.width
+    gpu.dims[1] = rect.height
 
-  //   const width = Floor(rect.width * window.devicePixelRatio)
-  //   const height = Floor(rect.height * window.devicePixelRatio)
+    const width = Math.floor(rect.width * window.devicePixelRatio)
+    const height = Math.floor(rect.height * window.devicePixelRatio)
 
-  //   gpu.canvas.width = width
-  //   gpu.canvas.height = height
+    gpu.canvas.width = width
+    gpu.canvas.height = height
 
-  //   gpu.canvas.style.width = `${rect.width}px`
-  //   gpu.canvas.style.height = `${rect.height}px`
-  // }
+    gpu.canvas.style.width = `${rect.width}px`
+    gpu.canvas.style.height = `${rect.height}px`
+  }
 
   const gl = gpu.gl
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -509,24 +603,34 @@ function ExecuteFrame(dt: number, state: State) {
 
   if (legitFrame) {
     try {
+      ImageCacheProcessRequests(
+        state.gpu.gl,
+        state.imageCache,
+        legitFrame.cached_img_requests,
+        console.error
+      )
       for (const invocation of legitFrame.shader_invocations) {
         const pass = state.framegraph.passes[invocation.shader_name]
         gl.useProgram(pass.program)
 
-        for (let uniformIndex=0; uniformIndex < invocation.uniforms.length; uniformIndex++) {
+        for (
+          let uniformIndex = 0;
+          uniformIndex < invocation.uniforms.length;
+          uniformIndex++
+        ) {
           const uniform = invocation.uniforms[uniformIndex]
           if (!uniform) {
-            continue;
+            continue
           }
 
           switch (uniform.type) {
-            case 'float': {
+            case "float": {
               gl.uniform1f(pass.uniforms[uniformIndex], uniform.val)
-              break;
+              break
             }
-            case 'int': {
+            case "int": {
               gl.uniform1i(pass.uniforms[uniformIndex], uniform.val)
-              break;
+              break
             }
             default: {
               console.error("ERROR: unhandled uniform type '%s'", uniform.type)
@@ -534,7 +638,43 @@ function ExecuteFrame(dt: number, state: State) {
           }
         }
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        for (
+          let samplerIndex = 0;
+          samplerIndex < invocation.image_sampler_bindings.length;
+          samplerIndex++
+        ) {
+          const sampler = invocation.image_sampler_bindings[samplerIndex]
+          const handle = ImageCacheGetImage(state.imageCache, sampler.id)
+          if (!handle) {
+            console.error("missing image from image cache %s", sampler)
+          }
+
+          gl.activeTexture(gl.TEXTURE0 + samplerIndex)
+          gl.bindTexture(gl.TEXTURE_2D, handle)
+          gl.uniform1i(pass.samplers[samplerIndex], samplerIndex)
+          gl.bindTexture(gl.TEXTURE_2D, handle)
+        }
+
+        // special case for swapchain image
+        if (invocation.color_attachments[0].id === 0) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        } else {
+          // TODO: bind more than one output
+          gl.bindFramebuffer(gl.FRAMEBUFFER, state.gpu.fbo)
+          const target = ImageCacheGetImage(
+            state.imageCache,
+            invocation.color_attachments[0].id
+          )
+          gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,
+            // TODO: MRT
+            gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D,
+            target,
+            0
+          )
+        }
+
         gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
         gpu.fullScreenRenderer()
       }
@@ -559,6 +699,7 @@ function InitEditor(editorEl: HTMLElement) {
     tabSize: 2,
     automaticLayout: true,
     theme: "vs-dark",
+    glyphMargin: true,
   })
 
   return editor
