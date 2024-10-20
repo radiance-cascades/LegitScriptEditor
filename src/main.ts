@@ -275,9 +275,21 @@ function InitWebGL(
   if (!container) {
     throw new Error("canvas must have a container")
   }
+  
+  const res = CreateRasterProgram(gl,
+    `#version 300 es
+    precision highp float;
+    precision highp sampler2D;
+    uniform sampler2D tex;
+    out vec4 out_color;
+    void main()
+    {
+      out_color = texelFetch(tex, ivec2(gl_FragCoord.xy), 0);
+    }`);
 
   return {
     container,
+    copyProgram : res.type === 'success' ? res.program : null,
     canvas,
     dims: [0, 0],
     gl: gl,
@@ -639,6 +651,17 @@ async function Init(
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
+function CopyTexToSwapchain(state: State, tex : WebGLTexture | null){
+  const gpu = state.gpu
+  const gl = gpu.gl
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
+  gl.activeTexture(gl.TEXTURE0)
+  gl.bindTexture(gl.TEXTURE_2D, tex)
+  gl.useProgram(gpu.copyProgram)
+  gpu.fullScreenRenderer()
+}
+
 function ExecuteFrame(dt: number, state: State) {
   if (!state.hasCompiledOnce) {
     // TODO: render a placeholder image "sorry, the shader didn't compile" or something
@@ -715,6 +738,13 @@ function ExecuteFrame(dt: number, state: State) {
         state.gpu.gl,
         state.imageCache,
       )
+      //This image will be copied into the swapchain
+      ImageCacheProcessRequest(
+        state.gpu.gl,
+        state.imageCache,
+        {id : 0, pixel_format : 'rgba8', size : {x: gpu.canvas.width, y: gpu.canvas.height}, type : 'CachedImageRequest'},
+        console.error)
+    
       for(const request of legitFrame.context_requests){
         if(request.type === 'CachedImageRequest'){
           ImageCacheProcessRequest(
@@ -799,9 +829,7 @@ function ExecuteFrame(dt: number, state: State) {
         }
 
         // special case for swapchain image
-        if (invocation.color_attachments[0].id === 0) {
-          gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        } else {
+        {
           // TODO: bind more than one output
           gl.bindFramebuffer(gl.FRAMEBUFFER, pass.fbo)
           
@@ -831,6 +859,8 @@ function ExecuteFrame(dt: number, state: State) {
         gpu.fullScreenRenderer()
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       }
+      CopyTexToSwapchain(state, ImageCacheGetImage(state.imageCache, 0));
+      
     } catch (e) {
       // can console.log/console.error this, but it'll stuck in a busy loop until error resolves
     }
