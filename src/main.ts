@@ -340,6 +340,37 @@ function UnsetEditorSquiggies(
   }
 }
 
+function OnEditorUpdate(
+  state : State,
+  decorations : monaco.editor.IEditorDecorationsCollection){
+  const compileResult = CompileLegitScript(
+    state.legitScriptCompiler,
+    state.editor
+  )
+  if (compileResult) {
+    if (compileResult.error) {
+      console.error("compileResult", compileResult)
+      const { line, column, desc } = compileResult.error
+      SetEditorSquiggies(decorations, state.editor, line, column, desc);
+    } else {
+      const model = state.editor.getModel()
+      if (model) {
+        monaco.editor.setModelMarkers(model, "legitscript", [])
+        decorations.set([])
+      }
+      const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult)
+      if(err)
+      {
+        SetEditorSquiggies(decorations, state.editor, err.line, 0, err.msg);
+      }else
+      {
+        state.hasCompiledOnce = true
+        UnsetEditorSquiggies(decorations, state.editor);
+      }
+    }
+  }
+}
+
 async function Init(
   editorEl: HTMLElement | null,
   canvasEl: HTMLElement | null,
@@ -388,32 +419,7 @@ async function Init(
 
   const decorations = editor.createDecorationsCollection([])
   const typingDebouncer = createDebouncer(100, () => {
-    const compileResult = CompileLegitScript(
-      legitScriptCompiler,
-      editor
-    )
-    if (compileResult) {
-      if (compileResult.error) {
-        console.error("compileResult", compileResult)
-        const { line, column, desc } = compileResult.error
-        SetEditorSquiggies(decorations, editor, line, column, desc);
-      } else {
-        const model = editor.getModel()
-        if (model) {
-          monaco.editor.setModelMarkers(model, "legitscript", [])
-          decorations.set([])
-        }
-        const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult)
-        if(err)
-        {
-          SetEditorSquiggies(decorations, editor, err.line, 0, err.msg);
-        }else
-        {
-          state.hasCompiledOnce = true
-          UnsetEditorSquiggies(decorations, editor);
-        }
-      }
-    }
+    OnEditorUpdate(state, decorations);
   })
 
   editor.getModel()?.onDidChangeContent(typingDebouncer)
