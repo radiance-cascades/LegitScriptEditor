@@ -1,5 +1,3 @@
-import { GlslSyntaxError, parser } from "@shaderfrog/glsl-parser"
-
 export type SuccessfulCompilationResult = {
   program : WebGLProgram,
   type: 'success'
@@ -11,6 +9,28 @@ export type FailedCompilationResult = {
 }
 
 export type CompilationResult = SuccessfulCompilationResult | FailedCompilationResult
+
+type ErrLocation = {
+  line : number,
+  column : number
+}
+function ParseGlslErrorLine(errorMessage : string) : ErrLocation
+{
+  //error location in format "something:line"
+  //nobody knows what "something" there means
+  const pattern = /(\d+)\s*:\s*(\d+)/;
+
+  // Find the match
+  const match = errorMessage.match(pattern);
+
+  if (match) {
+      const something = parseInt(match[1], 10);
+      const line = parseInt(match[2], 10);
+      return {line, column : 0}
+  } else {
+      return {line : 0, column : 0}
+  }
+}
 
 // TODO: we can probably reuse the vertex shader...
 export function CreateRasterProgram(
@@ -35,30 +55,14 @@ export function CreateRasterProgram(
     }
   }
 
-  try {
-    parser.parse(frag)
-  } catch (e: any) {
-    // Assume this is a syntax error
-    if (e.location && e.message) {
-      const syntaxError = e as GlslSyntaxError
-
-      return {
-        type: "fail",
-        msg: syntaxError.message,
-        // TODO: this includes a range that will be useful to show in the editor
-        line: syntaxError.location.start.line,
-      }
-    }
-  }
-
   gl.shaderSource(fragShader, frag)
   gl.compileShader(fragShader)
   if (!gl.getShaderParameter(fragShader, gl.COMPILE_STATUS)) {
     const err = gl.getShaderInfoLog(fragShader);
     return {
       type : 'fail',
-      msg : 'Failed to compile the fragment shader: '.concat(err ? err : 'no error, actually'),
-      line: 0
+      msg : 'FS: '.concat(err ? err : 'no error, actually'),
+      line: ParseGlslErrorLine(err ? err : "").line
     }
   }
 

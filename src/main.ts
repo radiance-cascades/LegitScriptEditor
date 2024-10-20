@@ -480,7 +480,8 @@ function SetEditorSquiggies(
       visibleRange.startLineNumber > line ||
       visibleRange.endLineNumber < line
     ) {
-      editor.revealLineInCenter(line)
+      if(line > 0) //line = 0 usually means we failed to find it
+        editor.revealLineInCenter(line)
     }
   }
 }

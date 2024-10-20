@@ -13,7 +13,6 @@
     "vite": "^5.4.8"
   },
   "dependencies": {
-    "@shaderfrog/glsl-parser": "^5.3.2",
     "monaco-editor": "^0.52.0",
     "terser": "^5.36.0"
   }
