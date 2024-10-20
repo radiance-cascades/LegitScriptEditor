@@ -90,6 +90,7 @@ body {
 #app controls {
   width: 100%;
   flex: 1;
+  overflow: auto;
 }
 
 #app controls control {
