@@ -193,6 +193,27 @@ function AssembleShader(shaderDesc : LegitScriptShaderDesc) : SourceAssembler.So
   return source_assembler
 }
 
+function CreatePass(
+  gl: WebGL2RenderingContext,
+  program: WebGLProgram,
+  fragSource : string,
+  desc: LegitScriptShaderDesc
+) : FramegraphPass{
+  
+  return{
+    fragSource : fragSource,
+    program : program,
+    fbo : gl.createFramebuffer(),
+    uniforms: desc.uniforms.map(({ name }) => {
+      return gl.getUniformLocation(program, name)
+    }),
+    samplers: desc.samplers.map(({ name }) => {
+      return gl.getUniformLocation(program, name)
+    }),
+    fboAttachmentIds: desc.outs.map((_, i) => gl.COLOR_ATTACHMENT0 + i),
+  }
+}
+
 function UpdateFramegraph(
   { gl }: GPUState,
   framegraph: Framegraph,
@@ -228,18 +249,7 @@ function UpdateFramegraph(
         gl.deleteProgram(pass.program)
       }
 
-      framegraph.passes[desc.name] = {
-        fragSource,
-        program : res.program,
-        fbo : gl.createFramebuffer(),
-        uniforms: desc.uniforms.map(({ name }) => {
-          return gl.getUniformLocation(res.program, name)
-        }),
-        samplers: desc.samplers.map(({ name }) => {
-          return gl.getUniformLocation(res.program, name)
-        }),
-        fboAttachmentIds: desc.outs.map((_, i) => gl.COLOR_ATTACHMENT0 + i),
-      }
+      framegraph.passes[desc.name] = CreatePass(gl, res.program, fragSource, desc);
     }
   }
   return null
@@ -364,7 +374,6 @@ function UnsetEditorSquiggies(
     decorations.set([])
   }
 }
-
 
 async function Init(
   editorEl: HTMLElement | null,
