@@ -5,12 +5,9 @@ import {
   Framegraph,
   FramegraphPass,
   GPUState,
-  ImmediateModeControl,
-  ImmediateModeControlType,
   LegitScriptFrameResult,
   LegitScriptContextInput,
   LegitScriptShaderDesc,
-  LegitScriptImmediateModeControlCallbacks,
   LegitScriptLoadResult,
   RaisesErrorFN,
 } from "./types"
@@ -31,17 +28,15 @@ import {
 import * as SourceAssembler from "./source-assembler.js"
 import { initialContent } from "./initial-content.js"
 import { ProcessScriptRequests, RunScriptInvocations } from "./legit-script-io.js"
-
+import { UIState } from "./immediate-ui.js"
 
 export type State = {
   editor: any
   gpu: GPUState
   framegraph: Framegraph
   legitScriptCompiler: any
+  uiState : UIState
   processedRequests : LegitScriptContextInput[]
-  imControlsCallbacks : LegitScriptImmediateModeControlCallbacks
-  controls: ImmediateModeControl[]
-  frameControlIndex: 0
   imageCache: ImageCache
   hasCompiledOnce: boolean
 }
@@ -55,13 +50,12 @@ self.MonacoEnvironment = {
 
 function CompileLegitScript(
   legitScriptCompiler: LegitScriptCompiler,
-  editor: monaco.editor.ICodeEditor,
-  imControls: LegitScriptImmediateModeControlCallbacks
+  editor: monaco.editor.ICodeEditor
 ): LegitScriptLoadResult | false {
   try {
     const content = editor.getModel()?.createSnapshot().read() || ""
     const r = JSON.parse(
-      legitScriptCompiler.LegitScriptLoad(content, imControls)
+      legitScriptCompiler.LegitScriptLoad(content)
     )
     return r
   } catch (e) {
@@ -292,35 +286,6 @@ function AttachDragger(
   })
 }
 
-function SliderControlCreate(
-  name: string,
-  value: string,
-  lo: string,
-  hi: string
-): HTMLElement {
-  const el = document.createElement("control")
-
-  const nameEl = document.createElement("span")
-  nameEl.setAttribute("class", "name")
-  nameEl.innerText = ` ${name} `
-  el.append(nameEl)
-
-  const inputEl = document.createElement("input")
-  inputEl.setAttribute("type", "range")
-  inputEl.setAttribute("min", lo)
-  inputEl.setAttribute("max", hi)
-  inputEl.setAttribute("value", value)
-  // TODO: compute this based on slider width
-  const step = 0.001
-  inputEl.setAttribute("step", step + "")
-  el.append(inputEl)
-
-  const labelEl = document.createElement("span")
-  labelEl.setAttribute("class", "value")
-  labelEl.innerText = ` (${value}) `
-  el.append(labelEl)
-  return el
-}
 
 function SetEditorSquiggies(
   decorations : monaco.editor.IEditorDecorationsCollection,
@@ -402,74 +367,7 @@ async function Init(
 
   editor.focus()
 
-  function Control(
-    type: ImmediateModeControlType,
-    name: string | null
-  ): ImmediateModeControl {
-    if (state.frameControlIndex < state.controls.length) {
-      const currentControl = state.controls[state.frameControlIndex]
-      if (currentControl && currentControl.type === type) {
-        if (currentControl.name === name || type === "text") {
-          state.frameControlIndex++
-          currentControl.isAlive = true
-          return currentControl
-        }
-      }
-    }
 
-    const currentControl: ImmediateModeControl = {
-      type,
-      name,
-      isAlive: true,
-    }
-
-    state.controls.push(currentControl)
-    return currentControl
-  }
-
-  var imControls = {
-    floatSlider(name: string, prevValue: number, lo: number, hi: number) {
-      const control = Control("float", name)
-      if (!control.el) {
-        control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
-        controlsEl.append(control.el)
-      }
-
-      let value = prevValue
-      const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
-      const inputEl = control.el.querySelector("input")
-      if (valueDisplayEl && inputEl) {
-        value = parseFloat(inputEl.value)
-        valueDisplayEl.innerText = ` (${value})`
-      }
-      return value
-    },
-    intSlider(name: string, prevValue: number, lo: number, hi: number) {
-      const control = Control("float", name)
-      if (!control.el) {
-        control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
-        controlsEl.append(control.el)
-      }
-
-      let value = prevValue
-      const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
-      const inputEl = control.el.querySelector("input")
-      if (valueDisplayEl && inputEl) {
-        value = parseFloat(inputEl.value)
-        valueDisplayEl.innerText = ` (${value})`
-      }
-      return value
-    },
-    text(value: string) {
-      const control = Control("float", null)
-      if (!control.el) {
-        control.el = document.createElement("control")
-        controlsEl.append(control.el)
-      }
-
-      control.el.innerText = value
-    },
-  }
 
   const state: State = {
     editor,
@@ -479,9 +377,7 @@ async function Init(
     },
     legitScriptCompiler,
     processedRequests: [],
-    imControlsCallbacks : imControls,
-    controls: [],
-    frameControlIndex: 0,
+    uiState : new UIState(controlsEl),
     imageCache: {
       id: 0,
       allocatedImages: new Map<string, ImageCacheAllocatedImage>(),
@@ -494,8 +390,7 @@ async function Init(
   const typingDebouncer = createDebouncer(100, () => {
     const compileResult = CompileLegitScript(
       legitScriptCompiler,
-      editor,
-      imControls
+      editor
     )
     if (compileResult) {
       if (compileResult.error) {
@@ -575,21 +470,7 @@ function ExecuteFrame(dt: number, state: State) {
   if (!state.framegraph) {
     return
   }
-
-  // remove dead controls
-  state.controls = state.controls.filter((control) => {
-    if (control.isAlive) {
-      control.isAlive = false
-      return true
-    }
-
-    if (control.el) {
-      console.log("remove control", control)
-      control.el.remove()
-    }
-    return false
-  })
-  state.frameControlIndex = 0
+  state.uiState.filterControls();
 
   state.processedRequests.push({
     name : '@swapchain_size',
@@ -611,7 +492,7 @@ function ExecuteFrame(dt: number, state: State) {
 
   if (legitFrame) {
     try {
-      state.processedRequests = ProcessScriptRequests(state.imControlsCallbacks, state.imageCache, {x: gpu.canvas.width, y: gpu.canvas.height}, gl, legitFrame.context_requests);
+      state.processedRequests = ProcessScriptRequests(state.uiState, state.imageCache, {x: gpu.canvas.width, y: gpu.canvas.height}, gl, legitFrame.context_requests);
       RunScriptInvocations(state.imageCache, state.gpu, state.framegraph.passes, legitFrame.shader_invocations)
       CopyTexToSwapchain(gpu, ImageCacheGetImage(state.imageCache, 0));
     } catch (e) {

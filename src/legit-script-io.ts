@@ -1,5 +1,4 @@
 import {
-  LegitScriptImmediateModeControlCallbacks,
   ivec2,
   LegitScriptContextRequest,
   LegitScriptContextInput,
@@ -13,8 +12,10 @@ import {
   ImageCacheStartFrame,
   ImageCacheProcessRequest} from "./image-cache";
 
+import { UIState } from "./immediate-ui";
+
 export function ProcessScriptRequests(
-  imControlsCallbacks : LegitScriptImmediateModeControlCallbacks,
+  uiState : UIState,
   imageCache : ImageCache,
   swapchainSize : ivec2,
   gl : WebGL2RenderingContext,
@@ -45,18 +46,18 @@ export function ProcessScriptRequests(
       contextInputs.push({
         name : request.name,
         type : 'float',
-        value : imControlsCallbacks.floatSlider(request.name, request.def_val, request.min_val, request.max_val)
+        value : uiState.floatSlider(request.name, request.def_val, request.min_val, request.max_val)
       });
     }
     if(request.type == 'IntRequest'){
       contextInputs.push({
         name : request.name,
         type : 'int',
-        value : imControlsCallbacks.intSlider(request.name, request.def_val, request.min_val, request.max_val)
+        value : uiState.intSlider(request.name, request.def_val, request.min_val, request.max_val)
       });
     }
     if(request.type == 'TextRequest'){
-      imControlsCallbacks.text(request.text)
+      uiState.text(request.text)
     }
     if(request.type == 'BoolRequest'){
       contextInputs.push({

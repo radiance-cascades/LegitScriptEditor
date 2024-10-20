@@ -207,20 +207,4 @@ export type LegitScriptFrameResult = {
   shader_invocations: LegitScriptShaderInvocation[]
 }
 
-export type LegitScriptImmediateModeControlCallbacks = {
-  floatSlider: (name: string, prevValue: number, minValue: number, maxValue: number) => number
-  intSlider: (name: string, prevValue: number, minValue: number, maxValue: number) => number
-  text: (value: string) => void
-}
-
-export type ImmediateModeControlType = 'float' | 'int' | 'text'
-export type ImmediateModeControl = {
-  type: ImmediateModeControlType
-  name: string | null
-  el?: HTMLElement
-  // track whether this control was used in the last frame
-  // if it was not, then it gets removed
-  isAlive?: boolean
-}
-
 export type RaisesErrorFN = (err: string) => void
