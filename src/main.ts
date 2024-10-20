@@ -319,7 +319,6 @@ function UpdateFramegraph(
   { gl }: GPUState,
   framegraph: Framegraph,
   result: LegitScriptLoadResult | undefined,
-  raiseError: RaisesErrorFN
 ) : FailedCompilationResult | null {
   if (!result) {
     return null
@@ -372,9 +371,6 @@ function UpdateFramegraph(
   return null
 }
 
-function RaiseError(err: string) {
-  console.error("RaiseError:", err)
-}
 
 function AttachDragger(
   dragEl: HTMLElement,
@@ -629,7 +625,7 @@ async function Init(
           monaco.editor.setModelMarkers(model, "legitscript", [])
           decorations.set([])
         }
-        const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
+        const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult)
         if(err)
         {
           SetEditorSquiggies(decorations, editor, err.line, 0, err.msg);

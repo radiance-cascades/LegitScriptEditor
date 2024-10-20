@@ -24,7 +24,7 @@ function ParseGlslErrorLine(errorMessage : string) : ErrLocation
   const match = errorMessage.match(pattern);
 
   if (match) {
-      const something = parseInt(match[1], 10);
+      //const something = parseInt(match[1], 10);
       const line = parseInt(match[2], 10);
       return {line, column : 0}
   } else {
