@@ -159,11 +159,12 @@ void RenderGraphMain()
       img2
     );
 
+    float color = SliderFloat("R", 0.0f, 1.0f, 0.5f);
     ColorPass(
-      SliderFloat("R", 0.0f, 1.0f, 0.5f),
-      SliderFloat("G", 0.0f, 1.0f, 0.5f),
-      SliderFloat("B", 0.0f, 1.0f, 0.5f),
-      SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2,
+      color,
+      color,
+      color,
+      SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2 * SliderFloat("Speed", 0.0f, 2.0f, 1.0f),
       sc.GetSize().x,
       sc.GetSize().y,
       uvImage,
@@ -656,7 +657,7 @@ function ExecuteFrame(dt: number, state: State) {
     //const width = Math.floor(rect.width * window.devicePixelRatio)
     //const height = Math.floor(rect.height * window.devicePixelRatio)
     const width = rect.width
-    const height = rect.width
+    const height = rect.height
 
     gpu.canvas.width = width
     gpu.canvas.height = height
