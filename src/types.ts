@@ -3,13 +3,13 @@ export type GPUState = {
   canvas: HTMLCanvasElement
   dims: number[]
   gl: WebGL2RenderingContext
-  fbo: WebGLFramebuffer
   fullScreenRenderer: () => void
 }
 
 export type FramegraphPass = {
   fragSource: string
   program: WebGLProgram
+  fbo: WebGLFramebuffer | null
   uniforms: (WebGLUniformLocation | null)[]
   samplers: (WebGLUniformLocation | null)[]
   fboAttachmentIds: number[]

@@ -268,11 +268,6 @@ function InitWebGL(
     }
   }
 
-  // a reusable fbo
-  const fbo = gl.createFramebuffer()
-  if (!fbo) {
-    throw new Error("could not create a single fbo")
-  }
   const container = canvas.parentElement
 
   if (!container) {
@@ -284,7 +279,6 @@ function InitWebGL(
     canvas,
     dims: [0, 0],
     gl: gl,
-    fbo,
     fullScreenRenderer: CreateFullscreenRenderer(gl),
   }
 }
@@ -358,6 +352,7 @@ function UpdateFramegraph(
       framegraph.passes[desc.name] = {
         fragSource,
         program : res.program,
+        fbo : gl.createFramebuffer(),
         uniforms: desc.uniforms.map(({ name }) => {
           return gl.getUniformLocation(res.program, name)
         }),
@@ -657,8 +652,11 @@ function ExecuteFrame(dt: number, state: State) {
     gpu.dims[0] = rect.width
     gpu.dims[1] = rect.height
 
-    const width = Math.floor(rect.width * window.devicePixelRatio)
-    const height = Math.floor(rect.height * window.devicePixelRatio)
+    //high DPI multiplier causes texture to fail to create when size is > 2048
+    //const width = Math.floor(rect.width * window.devicePixelRatio)
+    //const height = Math.floor(rect.height * window.devicePixelRatio)
+    const width = rect.width
+    const height = rect.width
 
     gpu.canvas.width = width
     gpu.canvas.height = height
@@ -803,7 +801,11 @@ function ExecuteFrame(dt: number, state: State) {
           gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         } else {
           // TODO: bind more than one output
-          gl.bindFramebuffer(gl.FRAMEBUFFER, state.gpu.fbo)
+          gl.bindFramebuffer(gl.FRAMEBUFFER, pass.fbo)
+          
+          if (invocation.color_attachments.length != pass.fboAttachmentIds.length) {
+            console.error("Mismatch in invocation vs pass description attachment count")
+          }
           for (
             let attachmentIndex = 0;
             attachmentIndex < invocation.color_attachments.length;
@@ -825,6 +827,7 @@ function ExecuteFrame(dt: number, state: State) {
 
         gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
         gpu.fullScreenRenderer()
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       }
     } catch (e) {
       // can console.log/console.error this, but it'll stuck in a busy loop until error resolves
