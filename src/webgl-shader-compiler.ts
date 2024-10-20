@@ -42,9 +42,6 @@ export function CreateRasterProgram(
     if (e.location && e.message) {
       const syntaxError = e as GlslSyntaxError
 
-      // TODO: remove me!
-      console.log(syntaxError.message, syntaxError.location)
-
       return {
         type: "fail",
         msg: syntaxError.message,

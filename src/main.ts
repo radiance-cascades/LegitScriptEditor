@@ -26,6 +26,7 @@ import {
 } from "./image-cache.js"
 
 import {
+  FailedCompilationResult,
   CreateRasterProgram
 } from "./webgl-shader-compiler.js"
 
@@ -319,9 +320,9 @@ function UpdateFramegraph(
   framegraph: Framegraph,
   result: LegitScriptLoadResult | undefined,
   raiseError: RaisesErrorFN
-) {
+) : FailedCompilationResult | null {
   if (!result) {
-    return
+    return null
   }
 
   for (const desc of result.shader_descs || []) {
@@ -338,9 +339,14 @@ function UpdateFramegraph(
     const res = CreateRasterProgram(gl, fragSource)
     if (res.type === 'fail') {
       const src_line = sourceAssembler.getSourceLine(res.line);
-      raiseError(
+      return {
+        line : src_line ? src_line : 0,
+        msg : res.msg,
+        type: 'fail'
+      }
+      /*raiseError(
         `Compilation of ${desc.name} failed at line ${src_line} with error ${res.msg}`
-      )
+      )*/
 
       continue
     }
@@ -363,6 +369,7 @@ function UpdateFramegraph(
       }
     }
   }
+  return null
 }
 
 function RaiseError(err: string) {
@@ -434,6 +441,59 @@ function SliderControlCreate(
   el.append(labelEl)
   return el
 }
+
+function SetEditorSquiggies(
+  decorations : monaco.editor.IEditorDecorationsCollection,
+  editor : monaco.editor.IStandaloneCodeEditor,
+  line : number,
+  column : number,
+  desc : string){
+  
+  decorations.set([
+    {
+      range: new monaco.Range(line, 1, line, 1),
+      options: {
+        isWholeLine: true,
+        className: "compileErrorGlyph",
+        glyphMarginClassName: "compileErrorBackground",
+      },
+    },
+  ])
+
+  const markers = [
+    {
+      message: desc,
+      severity: monaco.MarkerSeverity.Error,
+      startLineNumber: line,
+      startColumn: column,
+      endLineNumber: line,
+      endColumn: column + 1,
+    },
+  ]
+
+  const model = editor.getModel()
+  if (model) {
+    monaco.editor.setModelMarkers(model, "legitscript", markers)
+    const visibleRange = editor.getVisibleRanges()[0]
+    if (
+      !visibleRange ||
+      visibleRange.startLineNumber > line ||
+      visibleRange.endLineNumber < line
+    ) {
+      editor.revealLineInCenter(line)
+    }
+  }
+}
+function UnsetEditorSquiggies(
+  decorations : monaco.editor.IEditorDecorationsCollection,
+  editor : monaco.editor.IStandaloneCodeEditor){
+  const model = editor.getModel()
+  if (model) {
+    monaco.editor.setModelMarkers(model, "legitscript", [])
+    decorations.set([])
+  }
+}
+
 
 async function Init(
   editorEl: HTMLElement | null,
@@ -561,49 +621,22 @@ async function Init(
       if (compileResult.error) {
         console.error("compileResult", compileResult)
         const { line, column, desc } = compileResult.error
-
-        decorations.set([
-          {
-            range: new monaco.Range(line, 1, line, 1),
-            options: {
-              isWholeLine: true,
-              className: "compileErrorGlyph",
-              glyphMarginClassName: "compileErrorBackground",
-            },
-          },
-        ])
-
-        const markers = [
-          {
-            message: desc,
-            severity: monaco.MarkerSeverity.Error,
-            startLineNumber: line,
-            startColumn: column,
-            endLineNumber: line,
-            endColumn: column + 1,
-          },
-        ]
-
-        const model = editor.getModel()
-        if (model) {
-          monaco.editor.setModelMarkers(model, "legitscript", markers)
-          const visibleRange = editor.getVisibleRanges()[0]
-          if (
-            !visibleRange ||
-            visibleRange.startLineNumber > line ||
-            visibleRange.endLineNumber < line
-          ) {
-            editor.revealLineInCenter(line)
-          }
-        }
+        SetEditorSquiggies(decorations, editor, line, column, desc);
       } else {
-        state.hasCompiledOnce = true
         const model = editor.getModel()
         if (model) {
           monaco.editor.setModelMarkers(model, "legitscript", [])
           decorations.set([])
         }
-        UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
+        const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult, RaiseError)
+        if(err)
+        {
+          SetEditorSquiggies(decorations, editor, err.line, 0, err.msg);
+        }else
+        {
+          state.hasCompiledOnce = true
+          UnsetEditorSquiggies(decorations, editor);
+        }
       }
     }
   })
