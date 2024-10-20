@@ -1,4 +1,5 @@
-html, html {
+html,
+html {
   padding: 0;
   margin: 0;
   height: 100%;
@@ -28,9 +29,10 @@ body {
 }
 
 #app #editor {
-  border-right: 1px solid #ccc;
   height: 100%;
-  flex: 2;
+  flex: 1;
+  box-sizing: border-box;
+  padding: 1px;
 }
 
 #app #editor .compileErrorGlyph {
@@ -41,12 +43,42 @@ body {
   /* background-color: red; */
 }
 
+#app divider {
+  cursor: ew-resize;
+  width: 0px;
+  flex: 0 0 auto;
+  padding: 0 3px;
+}
+#app divider::before {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 100%;
+  background: #AAA;
+  margin: 0 auto;
+  border-right: #666 1px solid;
+  border-left: #666 1px solid;
+
+}
+#app divider:hover::before {
+  background: #EEE;
+  margin: 0 auto;
+  border-right: #666 1px solid;
+  border-left: #666 1px solid;
+}
+
+#app #output-and-controls {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+}
 
 #app output {
   height: 100%;
   width: 100%;
   margin: auto;
-  position:relative;
+  position: relative;
   flex: 2;
 }
 
@@ -61,7 +93,7 @@ body {
 }
 
 #app controls control {
-  display:block;
+  display: block;
   margin-top: 1em;
   margin-left: 1em;
 }

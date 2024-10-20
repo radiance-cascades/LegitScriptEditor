@@ -43,19 +43,42 @@ self.MonacoEnvironment = {
   },
 }
 
-const initialContent = `void ColorPass(in float r, in float g, in float b, in float p, in int width, in int height, sampler2D background, out vec4 out_color)
+const initialContent = `void ColorPass(
+  in float r,
+  in float g,
+  in float b,
+  in float p,
+  in int width,
+  in int height,
+  sampler2D background,
+  sampler2D tex1,
+  sampler2D tex2,
+  out vec4 out_color
+)
 {{
   vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }
   void main()
   {
     vec2 res = vec2(width, height);
+    if (gl_FragCoord.x > res.x - 200.0 && gl_FragCoord.y > res.y - 200.0) {
+
+      float mult = 0.2;
+      vec2 rel = gl_FragCoord.xy - (res - 200.0);
+      vec2 checkerboard = round(fract(rel * mult));
+      vec4 a = texelFetch(tex1, ivec2(rel.xy), 0);
+      vec4 b = texelFetch(tex2, ivec2(rel.xy), 0);
+
+      out_color = mix(a, b,  checkerboard.x * checkerboard.y);
+      return;
+    }
+
     vec2 uv = gl_FragCoord.xy / res.xy;
     float i = gl_FragCoord.x;
     float j = gl_FragCoord.y;
     vec2 s = res;
     int n = int(s.x * 0.5);
     vec2 c = vec2(-0.8, cos(2. * p));
-    vec2 z = vec2(i / float(n) - 1., j / float(n) - 1.) * 2.;
+    vec2 z = vec2(i / float(n) - 1., j / float(n) - 1.0) * 2.;
     int iterations = 0;
     while (sqrt(dot(z, z)) < 20. && iterations < 50) {
       z = complex_sqr(z) + c;
@@ -79,6 +102,16 @@ void DEBUGPassUV(in int width, in int height, out vec4 out_color)
     out_color = vec4(uv, 0.0, 1.0);
   }
 }}
+
+void TwoOutputsShader(out vec4 out_color1, out vec4 out_color2)
+{{
+  void main()
+  {
+    out_color1 = vec4(1.0f, 0.5f, 0.0f, 1.0f);
+    out_color2 = vec4(0.0f, 0.5f, 1.0f, 1.0f);
+  }
+}}
+
 
 [declaration: "smoothing"]
 {{
@@ -109,6 +142,14 @@ void RenderGraphMain()
       uvImage
     );
 
+
+    Image img1 = GetImage(GetSwapchainImage().GetSize(), rgba16f);
+    Image img2 = GetImage(GetSwapchainImage().GetSize(), rgba16f);
+    TwoOutputsShader(
+      img1,
+      img2
+    );
+
     ColorPass(
       SliderFloat("R", 0.0f, 1.0f, 0.5f),
       SliderFloat("G", 0.0f, 1.0f, 0.5f),
@@ -117,6 +158,8 @@ void RenderGraphMain()
       sc.GetSize().x,
       sc.GetSize().y,
       uvImage,
+      img1,
+      img2,
       sc
     );
 
@@ -247,7 +290,10 @@ function CreateRasterProgram(
   return program
 }
 
-function InitWebGL(canvas: HTMLCanvasElement): GPUState {
+function InitWebGL(
+  canvas: HTMLCanvasElement,
+  raiseError: RaisesErrorFN
+): GPUState {
   const options = {
     premultipliedAlpha: true,
     alpha: true,
@@ -264,6 +310,15 @@ function InitWebGL(canvas: HTMLCanvasElement): GPUState {
   })
 
   const gl = canvas.getContext("webgl2", options) as WebGL2RenderingContext
+
+  const extensions = ["EXT_color_buffer_float", "EXT_color_buffer_half_float"]
+  for (const extensionName of extensions) {
+    const extension = gl.getExtension(extensionName)
+    if (!extension) {
+      raiseError(`${extensionName} could not be loaded`)
+    }
+  }
+
   // a reusable fbo
   const fbo = gl.createFramebuffer()
   if (!fbo) {
@@ -296,7 +351,10 @@ function UpdateFramegraph(
   }
 
   for (const desc of result.shader_descs || []) {
-    const outputs = desc.outs.map(({ name, type }) => `out ${type} ${name};\n`)
+    const outputs = desc.outs.map(
+      ({ name, type }, index) =>
+        `layout(location=${index}) out ${type} ${name};\n`
+    )
     const uniforms = desc.uniforms.map(
       ({ name, type }) => `uniform ${type} ${name};\n`
     )
@@ -342,12 +400,49 @@ function UpdateFramegraph(
       samplers: desc.samplers.map(({ name }) => {
         return gl.getUniformLocation(program, name)
       }),
+      fboAttachmentIds: desc.outs.map((_, i) => gl.COLOR_ATTACHMENT0 + i),
     }
   }
 }
 
 function RaiseError(err: string) {
   console.error("RaiseError:", err)
+}
+
+function AttachDragger(
+  dragEl: HTMLElement,
+  resizeTarget: HTMLElement,
+  cb: (rect: DOMRect) => void
+) {
+
+  const dragWidth = dragEl.getBoundingClientRect().width
+
+  let down = false
+  dragEl.addEventListener(
+    "mousedown",
+    (e) => {
+      down = true
+      e.preventDefault()
+    },
+    { passive: false }
+  )
+  window.addEventListener("mouseup", (_) => {
+    down = false
+  })
+  window.addEventListener("mousemove", (e) => {
+    const parentEl = dragEl.parentElement
+    if (!down || !parentEl) {
+      return
+    }
+
+    const parentRect = parentEl.getBoundingClientRect()
+    const parentLeft = parentRect.left
+    const newWidth = e.clientX - parentLeft - dragWidth / 2
+    resizeTarget.style.width = `${newWidth.toFixed(0)}px`
+    resizeTarget.style.flexGrow = "0"
+    parentRect.width = newWidth
+    cb(parentRect)
+  })
 }
 
 function SliderControlCreate(
@@ -383,9 +478,10 @@ function SliderControlCreate(
 async function Init(
   editorEl: HTMLElement | null,
   canvasEl: HTMLElement | null,
-  controlsEl: HTMLElement | null
+  controlsEl: HTMLElement | null,
+  draggerEl: HTMLElement | null
 ) {
-  if (!editorEl || !canvasEl || !controlsEl) {
+  if (!editorEl || !canvasEl || !controlsEl || !draggerEl) {
     throw new Error("please provide an editor element and canvas element")
   }
 
@@ -395,6 +491,14 @@ async function Init(
   if (!editor) {
     throw new Error("could not initialize monaco")
   }
+
+  const editorResizeHandler = CreateEditorResizeHandler(editor, editorEl)
+  window.addEventListener("resize", editorResizeHandler)
+  editorResizeHandler()
+
+  AttachDragger(draggerEl, editorEl, (rect: DOMRect) => {
+    editor.layout({ width: rect.width, height: rect.height })
+  })
 
   editor.focus()
 
@@ -466,10 +570,10 @@ async function Init(
       control.el.innerText = value
     },
   }
-  
+
   const state: State = {
     editor,
-    gpu: InitWebGL(canvasEl as HTMLCanvasElement),
+    gpu: InitWebGL(canvasEl as HTMLCanvasElement, console.error),
     framegraph: {
       passes: {},
     },
@@ -557,7 +661,6 @@ function ExecuteFrame(dt: number, state: State) {
   
   const gpu = state.gpu
 
-  // TODO: fix this, position:relative causes pain w.r.t. flexbox
   // Ensure we're sized properly w.r.t. pixel ratio
   const rect = gpu.container.getBoundingClientRect()
   if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
@@ -711,18 +814,23 @@ function ExecuteFrame(dt: number, state: State) {
         } else {
           // TODO: bind more than one output
           gl.bindFramebuffer(gl.FRAMEBUFFER, state.gpu.fbo)
-          const target = ImageCacheGetImage(
-            state.imageCache,
-            invocation.color_attachments[0].id
-          )
-          gl.framebufferTexture2D(
-            gl.FRAMEBUFFER,
-            // TODO: MRT
-            gl.COLOR_ATTACHMENT0,
-            gl.TEXTURE_2D,
-            target,
-            0
-          )
+          for (
+            let attachmentIndex = 0;
+            attachmentIndex < invocation.color_attachments.length;
+            attachmentIndex++
+          ) {
+            const attachment = invocation.color_attachments[attachmentIndex]
+            const target = ImageCacheGetImage(state.imageCache, attachment.id)
+            gl.framebufferTexture2D(
+              gl.FRAMEBUFFER,
+              pass.fboAttachmentIds[attachmentIndex],
+              gl.TEXTURE_2D,
+              target,
+              0
+            )
+          }
+          // TODO: handle framebuffer completeness
+          gl.drawBuffers(pass.fboAttachmentIds)
         }
 
         gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
@@ -747,16 +855,30 @@ function InitEditor(editorEl: HTMLElement) {
       enabled: false,
     },
     tabSize: 2,
-    automaticLayout: true,
+    automaticLayout: false,
     theme: "vs-dark",
-    glyphMargin: true,
+    glyphMargin: false,
   })
 
   return editor
 }
 
+function CreateEditorResizeHandler(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  editorEl: HTMLElement
+) {
+  return () => {
+    // editor.layout({ width: 0, height: 0 })
+    window.requestAnimationFrame(() => {
+      const { width, height } = editorEl.getBoundingClientRect()
+      editor.layout({ width, height })
+    })
+  }
+}
+
 Init(
   document.querySelector("#editor"),
   document.querySelector("output canvas"),
-  document.querySelector("controls")
+  document.querySelector("controls"),
+  document.querySelector("divider")
 )
