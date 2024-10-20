@@ -25,7 +25,7 @@ import {
   CreateRasterProgram
 } from "./webgl-shader-compiler.js"
 
-import * as SourceAssembler from "./source-assembler.js"
+import { SourceAssembler } from "./source-assembler.js"
 import { initialContent } from "./initial-content.js"
 import { ProcessScriptRequests, RunScriptInvocations } from "./legit-script-io.js"
 import { UIState } from "./immediate-ui.js"
@@ -161,7 +161,7 @@ function InitWebGL(
   }
 }
 
-function AssembleShader(shaderDesc : LegitScriptShaderDesc) : SourceAssembler.SourceAssembler
+function AssembleShader(shaderDesc : LegitScriptShaderDesc) : SourceAssembler
 {
   const outputs = shaderDesc.outs.map(
     ({ name, type }, index) =>
@@ -174,7 +174,7 @@ function AssembleShader(shaderDesc : LegitScriptShaderDesc) : SourceAssembler.So
     ({ name, type }) => `uniform ${type} ${name};`
   )
 
-  var source_assembler = new SourceAssembler.SourceAssembler()
+  var source_assembler = new SourceAssembler()
   source_assembler.addNonSourceBlock(
     `#version 300 es
     precision highp float;
