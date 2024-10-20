@@ -85,9 +85,9 @@ const initialContent = `void ColorPass(
     float i = gl_FragCoord.x;
     float j = gl_FragCoord.y;
     vec2 s = res;
-    int n = int(s.x * 0.5);
+    ivec2 n = ivec2(s * 0.5);
     vec2 c = vec2(-0.8, cos(2. * p));
-    vec2 z = vec2(i / float(n) - 1., j / float(n) - 1.0) * 2.;
+    vec2 z = (vec2(i, j) - s / 2.0) / min(s.x, s.y) * 2.0;
     int iterations = 0;
     while (sqrt(dot(z, z)) < 20. && iterations < 50) {
       z = complex_sqr(z) + c;
