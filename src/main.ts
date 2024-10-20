@@ -88,12 +88,13 @@ const initialContent = `void ColorPass(
     ivec2 n = ivec2(s * 0.5);
     vec2 c = vec2(-0.8, cos(2. * p));
     vec2 z = (vec2(i, j) - s / 2.0) / min(s.x, s.y) * 2.0;
-    int iterations = 0;
-    while (sqrt(dot(z, z)) < 20. && iterations < 50) {
+    int it = 0;
+    while (sqrt(dot(z, z)) < 20. && it < 50) {
       z = complex_sqr(z) + c;
-      iterations = iterations + 1;
+      it = it + 1;
     }
-    vec4 fractal = vec4(float(iterations) - log2(0.5 * log(dot(z, z)) / log(20.0))) * 0.02;
+    float eps = 1e-7;
+    vec4 fractal = vec4(float(it) - log2(max(0.5 * log(dot(z, z)) / log(20.0), eps))) * 0.02;
     fractal.a = 1.;
     out_color.rgb = fractal.xyz * vec3(r, g, b);
     out_color.rgb = mix(out_color.rgb , texture(background, uv).rgb, 1.0 - length(out_color.rgb));
