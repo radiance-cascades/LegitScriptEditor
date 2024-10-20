@@ -651,6 +651,8 @@ async function Init(
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
+//there's no way in gles 3.0 to attach the backbuffer as part of an fbo. so we have to crate a temporary texture instead of the back buffer
+//and at the end of the frame copy it onto the back buffer
 function CopyTexToSwapchain(state: State, tex : WebGLTexture | null){
   const gpu = state.gpu
   const gl = gpu.gl
