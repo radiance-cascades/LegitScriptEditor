@@ -9,6 +9,7 @@ import {
   ImmediateModeControlType,
   LegitScriptFrameResult,
   LegitScriptContextInput,
+  LegitScriptShaderDesc,
   LegitScriptImmediateModeControlCallbacks,
   LegitScriptLoadResult,
   RaisesErrorFN,
@@ -23,6 +24,13 @@ import {
   ImageCacheStartFrame,
   ImageCacheProcessRequest,
 } from "./image-cache.js"
+
+import {
+  CreateRasterProgram
+} from "./webgl-shader-compiler.js"
+
+import * as SourceAssembler from "./source-assembler.js"
+
 
 export type State = {
   editor: any
@@ -228,67 +236,7 @@ function CreateFullscreenRenderer(gl: WebGL2RenderingContext) {
   }
 }
 
-// TODO: we can probably reuse the vertex shader...
-function CreateRasterProgram(
-  gl: WebGL2RenderingContext,
-  frag: string
-): WebGLProgram | undefined {
-  const vert = `#version 300 es
-    layout (location=0) in vec2 position;
-    out vec2 uv;
-    void main() {
-      uv = position.xy * 0.5 + 0.5;
-      gl_Position = vec4(position, 0, 1.0);
-    }
-  `
 
-  const fragShader = gl.createShader(gl.FRAGMENT_SHADER)
-  if (!fragShader) {
-    console.error("failed to create frag shader")
-    return
-  }
-
-  gl.shaderSource(fragShader, frag)
-  gl.compileShader(fragShader)
-  if (!gl.getShaderParameter(fragShader, gl.COMPILE_STATUS)) {
-    console.error("FRAGMENT SHADER", gl.getShaderInfoLog(fragShader))
-    return
-  }
-
-  const vertShader = gl.createShader(gl.VERTEX_SHADER)
-
-  if (!vertShader) {
-    console.error("failed to create vertex shader")
-    return
-  }
-
-  gl.shaderSource(vertShader, vert)
-  gl.compileShader(vertShader)
-  if (!gl.getShaderParameter(vertShader, gl.COMPILE_STATUS)) {
-    console.error("VERTEX SHADER", gl.getShaderInfoLog(vertShader))
-    return
-  }
-
-  const program = gl.createProgram()
-  if (!program) {
-    console.error("failed to create webgl program")
-    return
-  }
-
-  gl.attachShader(program, fragShader)
-  gl.attachShader(program, vertShader)
-  gl.linkProgram(program)
-
-  gl.deleteShader(fragShader)
-  gl.deleteShader(vertShader)
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.error(gl.getProgramInfoLog(program))
-    return
-  }
-
-  return program
-}
 
 function InitWebGL(
   canvas: HTMLCanvasElement,
@@ -340,6 +288,32 @@ function InitWebGL(
   }
 }
 
+function AssembleShader(shaderDesc : LegitScriptShaderDesc) : SourceAssembler.SourceAssembler
+{
+  const outputs = shaderDesc.outs.map(
+    ({ name, type }, index) =>
+      `layout(location=${index}) out ${type} ${name};\n`
+  )
+  const uniforms = shaderDesc.uniforms.map(
+    ({ name, type }) => `uniform ${type} ${name};\n`
+  )
+  const samplers = shaderDesc.samplers.map(
+    ({ name, type }) => `uniform ${type} ${name};`
+  )
+
+  var source_assembler = new SourceAssembler.SourceAssembler()
+  source_assembler.addNonSourceBlock(
+    `#version 300 es
+    precision highp float;
+    precision highp sampler2D;
+    ${outputs.join("\n")}
+    ${uniforms.join("\n")}
+    ${samplers.join("\n")}`
+  );
+  source_assembler.addSourceBlock(`${shaderDesc.body.text}`, shaderDesc.body.start);  
+  return source_assembler
+}
+
 function UpdateFramegraph(
   { gl }: GPUState,
   framegraph: Framegraph,
@@ -351,26 +325,9 @@ function UpdateFramegraph(
   }
 
   for (const desc of result.shader_descs || []) {
-    const outputs = desc.outs.map(
-      ({ name, type }, index) =>
-        `layout(location=${index}) out ${type} ${name};\n`
-    )
-    const uniforms = desc.uniforms.map(
-      ({ name, type }) => `uniform ${type} ${name};\n`
-    )
-    const samplers = desc.samplers.map(
-      ({ name, type }) => `uniform ${type} ${name};`
-    )
 
-    const fragSource = `#version 300 es
-      precision highp float;
-      precision highp sampler2D;
-      ${outputs.join("\n")}
-      ${uniforms.join("\n")}
-      ${samplers.join("\n")}
-      ${desc.body.text}
-    `
-
+    const sourceAssembler = AssembleShader(desc)
+    const fragSource = sourceAssembler.getResultText()
     let pass: FramegraphPass = framegraph.passes[desc.name]
     if (pass) {
       if (pass.fragSource === fragSource) {
@@ -378,29 +335,32 @@ function UpdateFramegraph(
       }
     }
 
-    const program = CreateRasterProgram(gl, fragSource)
-    if (!program) {
+    const res = CreateRasterProgram(gl, fragSource)
+    if (res.type === 'fail') {
+      const src_line = sourceAssembler.getSourceLine(res.line);
       raiseError(
-        `CreateRasterProgram returned an invalid program\nsource:\n${fragSource}`
+        `Compilation of ${desc.name} failed at line ${src_line} with error ${res.msg}`
       )
 
       continue
     }
+    if(res.type === 'success')
+    {
+      if (pass?.program) {
+        gl.deleteProgram(pass.program)
+      }
 
-    if (pass?.program) {
-      gl.deleteProgram(pass.program)
-    }
-
-    framegraph.passes[desc.name] = {
-      fragSource,
-      program,
-      uniforms: desc.uniforms.map(({ name }) => {
-        return gl.getUniformLocation(program, name)
-      }),
-      samplers: desc.samplers.map(({ name }) => {
-        return gl.getUniformLocation(program, name)
-      }),
-      fboAttachmentIds: desc.outs.map((_, i) => gl.COLOR_ATTACHMENT0 + i),
+      framegraph.passes[desc.name] = {
+        fragSource,
+        program : res.program,
+        uniforms: desc.uniforms.map(({ name }) => {
+          return gl.getUniformLocation(res.program, name)
+        }),
+        samplers: desc.samplers.map(({ name }) => {
+          return gl.getUniformLocation(res.program, name)
+        }),
+        fboAttachmentIds: desc.outs.map((_, i) => gl.COLOR_ATTACHMENT0 + i),
+      }
     }
   }
 }
