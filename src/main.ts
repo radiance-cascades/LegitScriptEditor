@@ -30,6 +30,7 @@ export type State = {
   framegraph: Framegraph
   legitScriptCompiler: any
   processedRequests : LegitScriptContextInput[]
+  imControlsCallbacks : LegitScriptImmediateModeControlCallbacks
   controls: ImmediateModeControl[]
   frameControlIndex: 0
   imageCache: ImageCache
@@ -147,12 +148,10 @@ function CompileLegitScript(
 
 function LegitScriptFrame(
   legitScriptCompiler: LegitScriptCompiler,
-  width: number,
-  height: number,
-  time: number
+  processedRequests : LegitScriptContextInput[]
 ): LegitScriptFrameResult | false {
   try {
-    const raw = legitScriptCompiler.LegitScriptFrame('[{"name": "@swapchain_size", "type": "ivec2", "value":{"x":512, "y":512}}]')
+    const raw = legitScriptCompiler.LegitScriptFrame(JSON.stringify(processedRequests))
     return JSON.parse(raw)
   } catch (e) {
     console.error(e)
@@ -399,24 +398,6 @@ async function Init(
 
   editor.focus()
 
-  const state: State = {
-    editor,
-    gpu: InitWebGL(canvasEl as HTMLCanvasElement),
-    framegraph: {
-      passes: {},
-    },
-    legitScriptCompiler,
-    processedRequests: [],
-    controls: [],
-    frameControlIndex: 0,
-    imageCache: {
-      id: 0,
-      allocatedImages: new Map<string, ImageCacheAllocatedImage>(),
-      requestIdToAllocatedImage: new Map<number, ImageCacheAllocatedImage>(),
-    },
-    hasCompiledOnce: false,
-  }
-
   function Control(
     type: ImmediateModeControlType,
     name: string | null
@@ -442,7 +423,7 @@ async function Init(
     return currentControl
   }
 
-  const imControls = {
+  var imControls = {
     floatSlider(name: string, prevValue: number, lo: number, hi: number) {
       const control = Control("float", name)
       if (!control.el) {
@@ -484,6 +465,25 @@ async function Init(
 
       control.el.innerText = value
     },
+  }
+  
+  const state: State = {
+    editor,
+    gpu: InitWebGL(canvasEl as HTMLCanvasElement),
+    framegraph: {
+      passes: {},
+    },
+    legitScriptCompiler,
+    processedRequests: [],
+    imControlsCallbacks : imControls,
+    controls: [],
+    frameControlIndex: 0,
+    imageCache: {
+      id: 0,
+      allocatedImages: new Map<string, ImageCacheAllocatedImage>(),
+      requestIdToAllocatedImage: new Map<number, ImageCacheAllocatedImage>(),
+    },
+    hasCompiledOnce: false,
   }
 
   const decorations = editor.createDecorationsCollection([])
@@ -554,7 +554,7 @@ function ExecuteFrame(dt: number, state: State) {
     requestAnimationFrame((dt) => ExecuteFrame(dt, state))
     return
   }
-
+  
   const gpu = state.gpu
 
   // TODO: fix this, position:relative causes pain w.r.t. flexbox
@@ -598,12 +598,23 @@ function ExecuteFrame(dt: number, state: State) {
   })
   state.frameControlIndex = 0
 
+  state.processedRequests.push({
+    name : '@swapchain_size',
+    type : 'ivec2',
+    value : {x : gpu.canvas.width, y: gpu.canvas.height}
+  });
+  state.processedRequests.push({
+    name : '@time',
+    type : 'float',
+    value : dt
+  });
+  
+  
   const legitFrame = LegitScriptFrame(
     state.legitScriptCompiler,
-    gpu.canvas.width,
-    gpu.canvas.height,
-    dt
+    state.processedRequests
   )
+  state.processedRequests = []
 
   if (legitFrame) {
     try {
@@ -619,6 +630,33 @@ function ExecuteFrame(dt: number, state: State) {
             request,
             console.error
           )
+        }
+        if(request.type == 'FloatRequest'){
+          state.processedRequests.push({
+            name : request.name,
+            type : 'float',
+            value : state.imControlsCallbacks.floatSlider(request.name, request.def_val, request.min_val, request.max_val)
+          });
+        }
+        if(request.type == 'IntRequest'){
+          state.processedRequests.push({
+            name : request.name,
+            type : 'int',
+            value : state.imControlsCallbacks.intSlider(request.name, request.def_val, request.min_val, request.max_val)
+          });
+        }
+        if(request.type == 'TextRequest'){
+          state.imControlsCallbacks.text(request.text)
+        }
+        if(request.type == 'BoolRequest'){
+          state.processedRequests.push({
+            name : request.name,
+            type : 'int',
+            value : 1 //TODO: actually make a checkbox
+          });
+        }
+        if(request.type == 'LoadedImageRequest'){
+          //TODO: figure this out
         }
       }
       for (const invocation of legitFrame.shader_invocations) {

@@ -101,24 +101,24 @@ export type vec4 = {x : number, y : number, z : number, w : number}
 export type LegitScriptFloatRequest = {
   name : string
   type : 'FloatRequest'
-  minVal : number
-  maxVal : number
-  defVal : number
+  min_val : number
+  max_val : number
+  def_val : number
 }
 export type LegitScriptIntRequest = {
   name : string
   type : 'IntRequest'
-  minVal : number
-  maxVal : number
-  defVal : number
+  min_val : number
+  max_val : number
+  def_val : number
 }
 export type LegitScriptBoolRequest = {
   name : string
   type : 'BoolRequest'
-  defVal : boolean
+  def_val : boolean
 }
 export type LegitScriptTextRequest = {
-  name : string
+  text : string
   type : 'TextRequest'
 }
 export type LegitScriptCachedImageRequest = {
@@ -132,14 +132,6 @@ export type LegitScriptLoadedImageRequest = {
   type : 'LoadedImageRequest'
   id : number
 }
-
-export type LegitScriptContextInput = {
-  name : string
-  type : string
-  value : number
-  // | vec2 | vec3 | vec4 | ivec2 | ivec3 | ivec4
-}
-
 export type LegitScriptContextRequest = 
   LegitScriptFloatRequest |
   LegitScriptIntRequest |
@@ -147,6 +139,57 @@ export type LegitScriptContextRequest =
   LegitScriptTextRequest |
   LegitScriptCachedImageRequest |
   LegitScriptLoadedImageRequest
+
+export type LegitScriptContextInputFloat = {
+  type : 'float'
+  name : string
+  value : number
+}
+export type LegitScriptContextInputVec2 = {
+  type : 'vec2'
+  name : string
+  value : vec2
+}
+export type LegitScriptContextInputVec3 = {
+  type : 'vec3'
+  name : string
+  value : vec3
+}
+export type LegitScriptContextInputVec4 = {
+  type : 'vec4'
+  name : string
+  value : vec4
+}
+export type LegitScriptContextInputInt = {
+  type : 'int'
+  name : string
+  value : number
+}
+export type LegitScriptContextInputIVec2 = {
+  type : 'ivec2'
+  name : string
+  value : ivec2
+}
+export type LegitScriptContextInputIVec3 = {
+  type : 'ivec3'
+  name : string
+  value : ivec3
+}
+export type LegitScriptContextInputIVec4 = {
+  type : 'ivec4'
+  name : string
+  value : ivec4
+}
+export type LegitScriptContextInput = 
+  LegitScriptContextInputFloat |
+  LegitScriptContextInputVec2 |
+  LegitScriptContextInputVec3 |
+  LegitScriptContextInputVec4 |
+  LegitScriptContextInputInt |
+  LegitScriptContextInputIVec2 |
+  LegitScriptContextInputIVec3 |
+  LegitScriptContextInputIVec4
+
 
 export type LegitScriptFrameResult = {
   context_requests: LegitScriptContextRequest[]
