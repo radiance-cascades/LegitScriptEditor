@@ -1,3 +1,5 @@
+import { GlslSyntaxError, parser } from "@shaderfrog/glsl-parser"
+
 export type SuccessfulCompilationResult = {
   program : WebGLProgram,
   type: 'success'
@@ -30,6 +32,25 @@ export function CreateRasterProgram(
       type : 'fail',
       msg : "failed to create frag shader",
       line: 0
+    }
+  }
+
+  try {
+    parser.parse(frag)
+  } catch (e: any) {
+    // Assume this is a syntax error
+    if (e.location && e.message) {
+      const syntaxError = e as GlslSyntaxError
+
+      // TODO: remove me!
+      console.log(syntaxError.message, syntaxError.location)
+
+      return {
+        type: "fail",
+        msg: syntaxError.message,
+        // TODO: this includes a range that will be useful to show in the editor
+        line: syntaxError.location.start.line,
+      }
     }
   }
 
