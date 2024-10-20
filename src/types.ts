@@ -75,10 +75,59 @@ export type LegitScriptShaderInvocationColorAttachment = {
   mip_end: number
 }
 
-export type LegitScriptShaderInvocationUniform = {
-  type: string
-  val: number
+
+
+export type LegitScriptOptFloat = {
+  type : 'float'
+  name : string
+  value : number
 }
+export type LegitScriptOptVec2 = {
+  type : 'vec2'
+  name : string
+  value : vec2
+}
+export type LegitScriptOptVec3 = {
+  type : 'vec3'
+  name : string
+  value : vec3
+}
+export type LegitScriptOptVec4 = {
+  type : 'vec4'
+  name : string
+  value : vec4
+}
+export type LegitScriptOptInt = {
+  type : 'int'
+  name : string
+  value : number
+}
+export type LegitScriptOptIVec2 = {
+  type : 'ivec2'
+  name : string
+  value : ivec2
+}
+export type LegitScriptOptIVec3 = {
+  type : 'ivec3'
+  name : string
+  value : ivec3
+}
+export type LegitScriptOptIVec4 = {
+  type : 'ivec4'
+  name : string
+  value : ivec4
+}
+
+export type LegitScriptShaderInvocationUniform = 
+LegitScriptOptFloat |
+LegitScriptOptVec2 |
+LegitScriptOptVec3 |
+LegitScriptOptVec4 |
+LegitScriptOptInt |
+LegitScriptOptIVec2 |
+LegitScriptOptIVec3 |
+LegitScriptOptIVec4
+
 
 export type LegitScriptShaderInvocationSamplerBinding = {
   id: number
@@ -142,55 +191,15 @@ export type LegitScriptContextRequest =
   LegitScriptCachedImageRequest |
   LegitScriptLoadedImageRequest
 
-export type LegitScriptContextInputFloat = {
-  type : 'float'
-  name : string
-  value : number
-}
-export type LegitScriptContextInputVec2 = {
-  type : 'vec2'
-  name : string
-  value : vec2
-}
-export type LegitScriptContextInputVec3 = {
-  type : 'vec3'
-  name : string
-  value : vec3
-}
-export type LegitScriptContextInputVec4 = {
-  type : 'vec4'
-  name : string
-  value : vec4
-}
-export type LegitScriptContextInputInt = {
-  type : 'int'
-  name : string
-  value : number
-}
-export type LegitScriptContextInputIVec2 = {
-  type : 'ivec2'
-  name : string
-  value : ivec2
-}
-export type LegitScriptContextInputIVec3 = {
-  type : 'ivec3'
-  name : string
-  value : ivec3
-}
-export type LegitScriptContextInputIVec4 = {
-  type : 'ivec4'
-  name : string
-  value : ivec4
-}
 export type LegitScriptContextInput = 
-  LegitScriptContextInputFloat |
-  LegitScriptContextInputVec2 |
-  LegitScriptContextInputVec3 |
-  LegitScriptContextInputVec4 |
-  LegitScriptContextInputInt |
-  LegitScriptContextInputIVec2 |
-  LegitScriptContextInputIVec3 |
-  LegitScriptContextInputIVec4
+  LegitScriptOptFloat |
+  LegitScriptOptVec2 |
+  LegitScriptOptVec3 |
+  LegitScriptOptVec4 |
+  LegitScriptOptInt |
+  LegitScriptOptIVec2 |
+  LegitScriptOptIVec3 |
+  LegitScriptOptIVec4
 
 
 export type LegitScriptFrameResult = {

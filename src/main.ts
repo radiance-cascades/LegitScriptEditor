@@ -31,6 +31,7 @@ import {
 } from "./webgl-shader-compiler.js"
 
 import * as SourceAssembler from "./source-assembler.js"
+import { initialContent } from "./initial-content.js"
 
 
 export type State = {
@@ -52,136 +53,6 @@ self.MonacoEnvironment = {
   },
 }
 
-const initialContent = `void ColorPass(
-  in float r,
-  in float g,
-  in float b,
-  in float p,
-  in int width,
-  in int height,
-  sampler2D background,
-  sampler2D tex1,
-  sampler2D tex2,
-  out vec4 out_color
-)
-{{
-  vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }
-  void main()
-  {
-    vec2 res = vec2(width, height);
-    if (gl_FragCoord.x > res.x - 200.0 && gl_FragCoord.y > res.y - 200.0) {
-
-      float mult = 0.1;
-      vec2 rel = gl_FragCoord.xy - (res - 200.0);
-      ivec2 checkerboard = ivec2(floor(rel * mult));
-      vec4 a = texelFetch(tex1, ivec2(rel.xy), 0);
-      vec4 b = texelFetch(tex2, ivec2(rel.xy), 0);
-
-      out_color = mix(a, b, float((checkerboard.x + checkerboard.y) % 2));
-      return;
-    }
-
-    vec2 uv = gl_FragCoord.xy / res.xy;
-    float i = gl_FragCoord.x;
-    float j = gl_FragCoord.y;
-    vec2 s = res;
-    ivec2 n = ivec2(s * 0.5);
-    vec2 c = vec2(-0.8, cos(2. * p));
-    vec2 z = (vec2(i, j) - s / 2.0) / min(s.x, s.y) * 2.0;
-    int it = 0;
-    while (sqrt(dot(z, z)) < 20. && it < 50) {
-      z = complex_sqr(z) + c;
-      it = it + 1;
-    }
-    float eps = 1e-7;
-    vec4 fractal = vec4(float(it) - log2(max(0.5 * log(dot(z, z)) / log(20.0), eps))) * 0.02;
-    fractal.a = 1.;
-    out_color.rgb = fractal.xyz * vec3(r, g, b);
-    out_color.rgb = mix(out_color.rgb , texture(background, uv).rgb, 1.0 - length(out_color.rgb));
-    out_color.a = 1.;
-  }
-}}
-
-void DEBUGPassUV(in int width, in int height, out vec4 out_color)
-{{
-  vec2 complex_sqr(vec2 z) { return vec2(z[0] * z[0] - z[1] * z[1], z[1] * z[0] * 2.); }
-  void main()
-  {
-    vec2 res = vec2(width, height);
-    vec2 uv = gl_FragCoord.xy / res.xy;
-    out_color = vec4(uv, 0.0, 1.0);
-  }
-}}
-
-void TwoOutputsShader(out vec4 out_color1, out vec4 out_color2)
-{{
-  void main()
-  {
-    out_color1 = vec4(1.0f, 0.5f, 0.0f, 1.0f);
-    out_color2 = vec4(0.0f, 0.5f, 1.0f, 1.0f);
-  }
-}}
-
-
-[declaration: "smoothing"]
-{{
-  float SmoothOverTime(float val, string name, float ratio = 0.95)
-  {
-    ContextVec2(name) = ContextVec2(name) * ratio + vec2(val, 1) * (1.0 - ratio);
-    return ContextVec2(name).x / (1e-7f + ContextVec2(name).y);
-  }
-}}
-
-[rendergraph]
-[include: "smoothing"]
-void RenderGraphMain()
-{{
-  void main()
-  {
-    Image img = GetImage(ivec2(128, 128), rgba8);
-    Image sc = GetSwapchainImage();
-    int a = SliderInt("Int param", -42, 42, 7);
-    float b = SliderFloat("Float param", -42.0f, 42.0f);
-    int frame_idx = ContextInt("frame_idx")++;
-
-    Image uvImage = GetImage(sc.GetSize(), rgba8);
-
-    DEBUGPassUV(
-      uvImage.GetSize().x,
-      uvImage.GetSize().y,
-      uvImage
-    );
-
-
-    Image img1 = GetImage(GetSwapchainImage().GetSize(), rgba16f);
-    Image img2 = GetImage(GetSwapchainImage().GetSize(), rgba16f);
-    TwoOutputsShader(
-      img1,
-      img2
-    );
-
-    float color = SliderFloat("R", 0.0f, 1.0f, 0.5f);
-    ColorPass(
-      color,
-      color,
-      color,
-      SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2 * SliderFloat("Speed", 0.0f, 2.0f, 1.0f),
-      sc.GetSize().x,
-      sc.GetSize().y,
-      uvImage,
-      img1,
-      img2,
-      sc
-    );
-
-
-    float dt = GetTime() - ContextFloat("prev_time");
-    ContextFloat("prev_time") = GetTime();
-    Text("Fps: " + 1000.0 / (1e-7f + SmoothOverTime(dt, "fps_count")));
-    Text("dims: " + sc.GetSize().x + ", " + sc.GetSize().y);
-  }
-}}
-`
 
 function CompileLegitScript(
   legitScriptCompiler: LegitScriptCompiler,
@@ -799,16 +670,37 @@ function ExecuteFrame(dt: number, state: State) {
           }
 
           switch (uniform.type) {
-            case "float": {
-              gl.uniform1f(pass.uniforms[uniformIndex], uniform.val)
+            case 'float': {
+              gl.uniform1f(pass.uniforms[uniformIndex], uniform.value)
+              break
+            }
+            case 'vec2': {
+              gl.uniform2f(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y)
+              break
+            }
+            case 'vec3': {
+              gl.uniform3f(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z)
+              break
+            }
+            case 'vec4': {
+              gl.uniform4f(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
               break
             }
             case "int": {
-              gl.uniform1i(pass.uniforms[uniformIndex], uniform.val)
+              gl.uniform1i(pass.uniforms[uniformIndex], uniform.value)
               break
             }
-            default: {
-              console.error("ERROR: unhandled uniform type '%s'", uniform.type)
+            case 'ivec2': {
+              gl.uniform2i(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y)
+              break
+            }
+            case 'ivec3': {
+              gl.uniform3i(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z)
+              break
+            }
+            case 'ivec4': {
+              gl.uniform4i(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
+              break
             }
           }
         }
