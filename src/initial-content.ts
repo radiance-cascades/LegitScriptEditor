@@ -19,7 +19,7 @@ void ColorPass(
       it = it + 1;
     }
     float eps = 1e-7;
-    vec4 fractal = vec4(float(it) - log2(max(0.5 * log(dot(z, z)) / log(20.0), eps))) * 0.02;
+    vec4 fractal = vec4(float(it) - log2(max(0.5 * log(dot(z, z)) / log(20.0), eps))) * 0.1;
     fractal.a = 1.;
     out_color.rgb = fractal.xyz * color;
     out_color.a = 1.;
@@ -118,7 +118,7 @@ void RenderGraphMain()
     float color = SliderFloat("Color", 0.0f, 1.0f, 0.5f);
     ColorPass(
       vec3(color),
-      vec2(-0.8, cos(2.0 * (SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2 * SliderFloat("Speed", 0.0f, 2.0f, 1.0f)))),
+      vec2(-0.8, cos(2.0 * (SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2 * SliderFloat("Speed", 0.0f, 2.0f, 0.4f)))),
       sc.GetSize(),
       sc
     );

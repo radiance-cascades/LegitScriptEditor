@@ -27,10 +27,10 @@ function SliderControlCreate(
   inputEl.setAttribute("type", "range")
   inputEl.setAttribute("min", lo)
   inputEl.setAttribute("max", hi)
-  inputEl.setAttribute("value", value)
-  // TODO: compute this based on slider width
   const step = 0.001
   inputEl.setAttribute("step", step + "")
+  inputEl.setAttribute("value", value)
+  // TODO: compute this based on slider width
   el.append(inputEl)
 
   const labelEl = document.createElement("span")
@@ -73,14 +73,16 @@ export class UIState{
     if (!control.el) {
       control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
       this.controlsEl.append(control.el)
-      return prevValue
     }
 
+    let value = prevValue
+    const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
     const inputEl = control.el.querySelector("input")
-    if(inputEl)
-      return parseFloat(inputEl.value)
-    else
-      return prevValue
+    if (valueDisplayEl && inputEl) {
+      value = parseFloat(inputEl.value)
+      valueDisplayEl.innerText = ` (${value})`
+    }
+    return value
   }
   intSlider(name: string, prevValue: number, lo: number, hi: number) : number {
     const control = this.control("float", name)
@@ -89,11 +91,14 @@ export class UIState{
       this.controlsEl.append(control.el)
     }
 
+    let value = prevValue
+    const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
     const inputEl = control.el.querySelector("input")
-    if(inputEl)
-      return parseFloat(inputEl.value)
-    else
-      return prevValue
+    if (valueDisplayEl && inputEl) {
+      value = parseFloat(inputEl.value)
+      valueDisplayEl.innerText = ` (${value})`
+    }
+    return value
   }
   text(value: string) {
     const control = this.control("float", null)
