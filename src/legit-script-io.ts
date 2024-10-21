@@ -4,7 +4,8 @@ import {
   LegitScriptContextInput,
   GPUState,
   FramegraphPasses,
-  LegitScriptShaderInvocation} from "./types";
+  LegitScriptShaderInvocation,
+  LegitScriptBlendModes} from "./types";
 
 import {
   ImageCache,
@@ -74,6 +75,35 @@ export function ProcessScriptRequests(
   return contextInputs;
 }
 
+export function SetBlendMode(gl: WebGL2RenderingContext, blendMode : LegitScriptBlendModes)
+{
+  gl.enable(gl.BLEND);
+  switch(blendMode)
+  {
+    case 'opaque': {
+      gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ZERO);
+      gl.blendEquation(gl.FUNC_ADD)
+      break
+    }
+    case 'alphablend': {
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      //gl.blendFunc(gl.ONE, gl.ONE);
+      gl.blendEquation(gl.FUNC_ADD)
+      break
+    }
+    case 'additive': {
+      gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
+      gl.blendEquation(gl.FUNC_ADD)
+      break
+    }
+    case 'multiplicative': {
+      gl.blendFunc(gl.DST_COLOR, gl.ZERO)
+      gl.blendFuncSeparate(gl.DST_COLOR, gl.ZERO, gl.DST_ALPHA, gl.ZERO);
+      gl.blendEquation(gl.FUNC_ADD)
+      break
+    }
+  }
+}
 
 export function RunScriptInvocations(
   imageCache: ImageCache,
@@ -151,40 +181,39 @@ export function RunScriptInvocations(
 
     // special case for swapchain image
     var viewportSize = {x: -1, y: -1};
-    {
-      // TODO: bind more than one output
-      gl.bindFramebuffer(gl.FRAMEBUFFER, pass.fbo)
-      
-      if (invocation.color_attachments.length != pass.fboAttachmentIds.length) {
-        console.error("Mismatch in invocation vs pass description attachment count")
-      }
-      for (
-        let attachmentIndex = 0;
-        attachmentIndex < invocation.color_attachments.length;
-        attachmentIndex++
-      ) {
-        const attachment = invocation.color_attachments[attachmentIndex]
-        const target = ImageCacheGetImage(imageCache, attachment.id)
-        const size = ImageCacheGetSize(imageCache, attachment.id);
-        if(viewportSize.x > 0 && viewportSize.y > 0 && (viewportSize.x != size.x || viewportSize.y != size.y)){
-          console.error("Attachments can't be of different size")
-          return
-        }
-        viewportSize = size;
-        
-        gl.framebufferTexture2D(
-          gl.FRAMEBUFFER,
-          pass.fboAttachmentIds[attachmentIndex],
-          gl.TEXTURE_2D,
-          target,
-          0
-        )
-      }
-      // TODO: handle framebuffer completeness
-      gl.drawBuffers(pass.fboAttachmentIds)
+    // TODO: bind more than one output
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pass.fbo)
+    
+    if (invocation.color_attachments.length != pass.fboAttachmentIds.length) {
+      console.error("Mismatch in invocation vs pass description attachment count")
     }
+    for (
+      let attachmentIndex = 0;
+      attachmentIndex < invocation.color_attachments.length;
+      attachmentIndex++
+    ) {
+      const attachment = invocation.color_attachments[attachmentIndex]
+      const target = ImageCacheGetImage(imageCache, attachment.id)
+      const size = ImageCacheGetSize(imageCache, attachment.id);
+      if(viewportSize.x > 0 && viewportSize.y > 0 && (viewportSize.x != size.x || viewportSize.y != size.y)){
+        console.error("Attachments can't be of different size")
+        return
+      }
+      viewportSize = size;
+      
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        pass.fboAttachmentIds[attachmentIndex],
+        gl.TEXTURE_2D,
+        target,
+        0
+      )
+    }
+    // TODO: handle framebuffer completeness
+    gl.drawBuffers(pass.fboAttachmentIds)
 
     gl.viewport(0, 0, viewportSize.x, viewportSize.y)
+    SetBlendMode(gl, pass.blendMode)
     gpu.fullScreenRenderer()
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }

@@ -27,7 +27,7 @@ import {
 
 import { SourceAssembler } from "./source-assembler.js"
 import { initialContent } from "./initial-content.js"
-import { ProcessScriptRequests, RunScriptInvocations } from "./legit-script-io.js"
+import { ProcessScriptRequests, RunScriptInvocations, SetBlendMode } from "./legit-script-io.js"
 import { UIState } from "./immediate-ui.js"
 
 export type State = {
@@ -148,7 +148,7 @@ function InitWebGL(
     out vec4 out_color;
     void main()
     {
-      out_color = texelFetch(tex, ivec2(gl_FragCoord.xy), 0);
+      out_color = vec4(texelFetch(tex, ivec2(gl_FragCoord.xy), 0).rgb, 1.0);
     }`);
 
   return {
@@ -196,6 +196,7 @@ function CreatePass(
   
   return{
     fragSource : fragSource,
+    blendMode : desc.blend_mode,
     program : program,
     fbo : gl.createFramebuffer(),
     uniforms: desc.uniforms.map(({ name }) => {
@@ -325,8 +326,9 @@ function SetEditorSquiggies(
       visibleRange.startLineNumber > line ||
       visibleRange.endLineNumber < line
     ) {
-      if(line > 0) //line = 0 usually means we failed to find it
-        editor.revealLineInCenter(line)
+      //this feels very bad when you change the number of arguments to a pass and it immediately jumps you to the call site of that pass that now contains an error
+      //if(line > 0) //line = 0 usually means we failed to find it
+      //  editor.revealLineInCenter(line)
     }
   }
 }
@@ -430,6 +432,7 @@ async function Init(
 //and at the end of the frame copy it onto the back buffer
 function CopyTexToSwapchain(gpu: GPUState, tex : WebGLTexture | null){
   const gl = gpu.gl
+  SetBlendMode(gl, 'opaque');
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
   gl.activeTexture(gl.TEXTURE0)

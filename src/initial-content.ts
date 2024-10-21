@@ -1,10 +1,8 @@
-export const initialContent = `void ColorPass(
+export const initialContent = `[blendmode: multiplicative]
+void ColorPass(
   in vec3 color,
   in vec2 c,
   in ivec2 size,
-  sampler2D background,
-  sampler2D tex1,
-  sampler2D tex2,
   out vec4 out_color
 )
 {{
@@ -12,17 +10,6 @@ export const initialContent = `void ColorPass(
   void main()
   {
     ivec2 pixel_idx = ivec2(gl_FragCoord.xy);
-    if (pixel_idx.x > size.x - 200 && pixel_idx.y > size.y - 200) {
-
-      float mult = 0.1;
-      ivec2 rel = pixel_idx - (size - 200);
-      ivec2 checkerboard = ivec2(rel >> 4);
-      vec4 a = texelFetch(tex1, ivec2(rel.xy), 0);
-      vec4 b = texelFetch(tex2, ivec2(rel.xy), 0);
-
-      out_color = mix(a, b, float((checkerboard.x + checkerboard.y) % 2));
-      return;
-    }
 
     vec2 uv = gl_FragCoord.xy / vec2(size);
     vec2 z = vec2(pixel_idx - size / 2) / float(min(size.x, size.y)) * 2.0;
@@ -35,7 +22,6 @@ export const initialContent = `void ColorPass(
     vec4 fractal = vec4(float(it) - log2(max(0.5 * log(dot(z, z)) / log(20.0), eps))) * 0.02;
     fractal.a = 1.;
     out_color.rgb = fractal.xyz * color;
-    out_color.rgb = mix(out_color.rgb , texture(background, uv).rgb, max(0.0, 1.0 - length(fractal.xyz)));
     out_color.a = 1.;
   }
 }}
@@ -55,6 +41,32 @@ void TwoOutputsShader(out vec4 out_color1, out vec4 out_color2)
   {
     out_color1 = vec4(1.0f, 0.5f, 0.0f, 1.0f);
     out_color2 = vec4(0.0f, 0.5f, 1.0f, 1.0f);
+  }
+}}
+
+[blendmode: alphablend]
+void TwoInputsShader(
+  in ivec2 size,
+  sampler2D tex1,
+  sampler2D tex2,
+  out vec4 out_color
+)
+{{
+  void main()
+  {
+    ivec2 pixel_idx = ivec2(gl_FragCoord.xy);
+    if (pixel_idx.x > size.x - 200 && pixel_idx.y > size.y - 200) {
+
+      float mult = 0.1;
+      ivec2 rel = pixel_idx - (size - 200);
+      ivec2 checkerboard = ivec2(rel >> 4);
+      vec4 a = texelFetch(tex1, ivec2(rel.xy), 0);
+      vec4 b = texelFetch(tex2, ivec2(rel.xy), 0);
+
+      out_color = mix(a, b, float((checkerboard.x + checkerboard.y) % 2));
+      return;
+    }
+    out_color = vec4(0.0);
   }
 }}
 
@@ -90,12 +102,6 @@ void RenderGraphMain()
     int frame_idx = ContextInt("frame_idx")++;
     Text("Frame index:" + frame_idx);
 
-    Image uvImage = GetImage(sc.GetSize(), rgba8);
-
-    DEBUGPassUV(
-      uvImage.GetSize(),
-      uvImage
-    );
 
 
     Image img1 = GetImage(GetSwapchainImage().GetSize(), rgba16f);
@@ -104,17 +110,20 @@ void RenderGraphMain()
       img1,
       img2
     );
+    DEBUGPassUV(
+      sc.GetSize(),
+      sc
+    );
 
     float color = SliderFloat("Color", 0.0f, 1.0f, 0.5f);
     ColorPass(
       vec3(color),
       vec2(-0.8, cos(2.0 * (SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2 * SliderFloat("Speed", 0.0f, 2.0f, 1.0f)))),
       sc.GetSize(),
-      uvImage,
-      img1,
-      img2,
       sc
     );
+
+    TwoInputsShader(sc.GetSize(), img1, img2, sc);
 
 
     Text("Fps: " + GetSmoothFps());

@@ -73,6 +73,7 @@ export class UIState{
     if (!control.el) {
       control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
       this.controlsEl.append(control.el)
+      return prevValue
     }
 
     let value = prevValue

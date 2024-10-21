@@ -11,6 +11,7 @@ export type FramegraphPass = {
   fragSource: string
   program: WebGLProgram
   fbo: WebGLFramebuffer | null
+  blendMode : LegitScriptBlendModes
   uniforms: (WebGLUniformLocation | null)[]
   samplers: (WebGLUniformLocation | null)[]
   fboAttachmentIds: number[]
@@ -51,9 +52,11 @@ export type LegitScriptShaderSampler = {
   type: 'sampler2D'
 }
 
+export type LegitScriptBlendModes = 'opaque' | 'alphablend' | 'additive' | 'multiplicative';
 export type LegitScriptShaderDesc = {
   body: LegitScriptBlockBody
   name: string
+  blend_mode: LegitScriptBlendModes
   outs: LegitScriptShaderOutput[]
   uniforms: LegitScriptShaderUniform[]
   samplers: LegitScriptShaderSampler[]
