@@ -124,6 +124,7 @@ export class UIState{
         }
       }
     }
+    this.frameControlIndex++
   
     const currentControl: ImmediateModeControl = {
       type,
