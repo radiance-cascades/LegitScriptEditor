@@ -76,14 +76,11 @@ export class UIState{
       return prevValue
     }
 
-    let value = prevValue
-    const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
     const inputEl = control.el.querySelector("input")
-    if (valueDisplayEl && inputEl) {
-      value = parseFloat(inputEl.value)
-      valueDisplayEl.innerText = ` (${value})`
-    }
-    return value
+    if(inputEl)
+      return parseFloat(inputEl.value)
+    else
+      return prevValue
   }
   intSlider(name: string, prevValue: number, lo: number, hi: number) : number {
     const control = this.control("float", name)
@@ -92,14 +89,11 @@ export class UIState{
       this.controlsEl.append(control.el)
     }
 
-    let value = prevValue
-    const valueDisplayEl = control.el.querySelector(".value") as HTMLElement
     const inputEl = control.el.querySelector("input")
-    if (valueDisplayEl && inputEl) {
-      value = parseFloat(inputEl.value)
-      valueDisplayEl.innerText = ` (${value})`
-    }
-    return value
+    if(inputEl)
+      return parseFloat(inputEl.value)
+    else
+      return prevValue
   }
   text(value: string) {
     const control = this.control("float", null)
