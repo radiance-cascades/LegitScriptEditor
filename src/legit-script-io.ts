@@ -9,6 +9,7 @@ import {
 import {
   ImageCache,
   ImageCacheGetImage,
+  ImageCacheGetSize,
   ImageCacheStartFrame,
   ImageCacheProcessRequest} from "./image-cache";
 
@@ -149,6 +150,7 @@ export function RunScriptInvocations(
     }
 
     // special case for swapchain image
+    var viewportSize = {x: -1, y: -1};
     {
       // TODO: bind more than one output
       gl.bindFramebuffer(gl.FRAMEBUFFER, pass.fbo)
@@ -163,6 +165,13 @@ export function RunScriptInvocations(
       ) {
         const attachment = invocation.color_attachments[attachmentIndex]
         const target = ImageCacheGetImage(imageCache, attachment.id)
+        const size = ImageCacheGetSize(imageCache, attachment.id);
+        if(viewportSize.x > 0 && viewportSize.y > 0 && (viewportSize.x != size.x || viewportSize.y != size.y)){
+          console.error("Attachments can't be of different size")
+          return
+        }
+        viewportSize = size;
+        
         gl.framebufferTexture2D(
           gl.FRAMEBUFFER,
           pass.fboAttachmentIds[attachmentIndex],
@@ -175,7 +184,7 @@ export function RunScriptInvocations(
       gl.drawBuffers(pass.fboAttachmentIds)
     }
 
-    gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
+    gl.viewport(0, 0, viewportSize.x, viewportSize.y)
     gpu.fullScreenRenderer()
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }

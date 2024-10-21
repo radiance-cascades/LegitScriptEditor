@@ -17,7 +17,7 @@ import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
 import {
   ImageCache,
   ImageCacheAllocatedImage,
-  ImageCacheGetImage,
+  ImageCacheGetImage
 } from "./image-cache.js"
 
 import {

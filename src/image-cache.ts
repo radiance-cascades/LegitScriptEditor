@@ -3,6 +3,7 @@ import { LegitScriptCachedImageRequest, RaisesErrorFN } from "./types"
 export type ImageCacheAllocatedImage = {
   id: number
   requestId: number
+  size : {x: number, y: number}
   handle: WebGLTexture
   framesSinceLastUse: number
 }
@@ -128,6 +129,7 @@ export function ImageCacheProcessRequest(
 
     const cachedImg = {
       id,
+      size : {x: request.size.x, y: request.size.y},
       requestId: request.id,
       handle: texture,
       framesSinceLastUse: 0,
@@ -147,4 +149,13 @@ export function ImageCacheGetImage(
 ): WebGLTexture | false {
   const img = cache.requestIdToAllocatedImage.get(requestId)
   return img?.handle ?? false
+}
+
+
+export function ImageCacheGetSize(
+  cache: ImageCache,
+  requestId: number
+): {x: number, y: number} {
+  const img = cache.requestIdToAllocatedImage.get(requestId)
+  return img?.size ? img.size : {x: 1, y: 1}
 }
