@@ -114,11 +114,11 @@ void RenderGraphMain()
       sc.GetSize(),
       sc
     );
-
+    ContextFloat("phase") += 1e-2 * SliderFloat("Speed", 0.0f, 2.0f, 0.4f);
     float color = SliderFloat("Color", 0.0f, 1.0f, 0.5f);
     ColorPass(
       vec3(color),
-      vec2(-0.8, cos(2.0 * (SliderFloat("P", 0.0f, 2.0f, 0.7f) + frame_idx * 1e-2 * SliderFloat("Speed", 0.0f, 2.0f, 0.4f)))),
+      vec2(-0.8, cos(2.0 * (SliderFloat("P", 0.0f, 2.0f, 0.7f) + ContextFloat("phase")))),
       sc.GetSize(),
       sc
     );
