@@ -10,6 +10,7 @@ import {
   LegitScriptShaderDesc,
   LegitScriptLoadResult,
   RaisesErrorFN,
+  LegitScriptDeclaration,
 } from "./types"
 
 // @ts-ignore
@@ -162,7 +163,7 @@ function InitWebGL(
   }
 }
 
-function AssembleShader(shaderDesc : LegitScriptShaderDesc) : SourceAssembler
+function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : LegitScriptShaderDesc) : SourceAssembler
 {
   const outputs = shaderDesc.outs.map(
     ({ name, type }, index) =>
@@ -179,8 +180,20 @@ function AssembleShader(shaderDesc : LegitScriptShaderDesc) : SourceAssembler
   source_assembler.addNonSourceBlock(
     `#version 300 es
     precision highp float;
-    precision highp sampler2D;
-    ${outputs.join("\n")}
+    precision highp sampler2D;`)
+  
+  var includes: string;
+  for(const include of shaderDesc.includes){
+    for(const decl of declarations){
+      if(decl.name == include){
+        source_assembler.addSourceBlock(decl.body.text, decl.body.start);
+        break
+      }
+    }
+  }
+
+  source_assembler.addNonSourceBlock(
+    `${outputs.join("\n")}
     ${uniforms.join("\n")}
     ${samplers.join("\n")}`
   );
@@ -221,7 +234,7 @@ function UpdateFramegraph(
 
   for (const desc of result.shader_descs || []) {
 
-    const sourceAssembler = AssembleShader(desc)
+    const sourceAssembler = AssembleShader(result.declarations, desc)
     const fragSource = sourceAssembler.getResultText()
     let pass: FramegraphPass = framegraph.passes[desc.name]
     if (pass) {

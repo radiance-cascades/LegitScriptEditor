@@ -57,6 +57,7 @@ export type LegitScriptShaderDesc = {
   body: LegitScriptBlockBody
   name: string
   blend_mode: LegitScriptBlendModes
+  includes: string[]
   outs: LegitScriptShaderOutput[]
   uniforms: LegitScriptShaderUniform[]
   samplers: LegitScriptShaderSampler[]
