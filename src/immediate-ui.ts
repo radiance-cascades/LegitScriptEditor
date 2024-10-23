@@ -14,7 +14,8 @@ function SliderControlCreate(
   name: string,
   value: string,
   lo: string,
-  hi: string
+  hi: string,
+  is_int: boolean
 ): HTMLElement {
   const el = document.createElement("control")
 
@@ -27,7 +28,7 @@ function SliderControlCreate(
   inputEl.setAttribute("type", "range")
   inputEl.setAttribute("min", lo)
   inputEl.setAttribute("max", hi)
-  const step = 0.001
+  const step = is_int ? 1.0 : 0.001
   inputEl.setAttribute("step", step + "")
   inputEl.setAttribute("value", value)
   // TODO: compute this based on slider width
@@ -71,7 +72,7 @@ export class UIState{
   floatSlider(name: string, prevValue: number, lo: number, hi: number) : number {
     const control = this.control("float", name)
     if (!control.el) {
-      control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
+      control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "", false)
       this.controlsEl.append(control.el)
     }
 
@@ -87,7 +88,7 @@ export class UIState{
   intSlider(name: string, prevValue: number, lo: number, hi: number) : number {
     const control = this.control("float", name)
     if (!control.el) {
-      control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "")
+      control.el = SliderControlCreate(name, prevValue + "", lo + "", hi + "", true)
       this.controlsEl.append(control.el)
     }
 
