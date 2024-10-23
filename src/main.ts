@@ -182,7 +182,6 @@ function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : Leg
     precision highp float;
     precision highp sampler2D;`)
   
-  var includes: string;
   for(const include of shaderDesc.includes){
     for(const decl of declarations){
       if(decl.name == include){
