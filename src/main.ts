@@ -149,8 +149,8 @@ function InitWebGL(
     out vec4 out_color;
     void main()
     {
-      out_color = vec4(texelFetch(tex, ivec2(gl_FragCoord.xy), 0).rgb, 1.0);
-      //out_color = vec4(pow(clamp(texelFetch(tex, ivec2(gl_FragCoord.xy), 0).rgb, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2)), 1.0);
+      //out_color = vec4(texelFetch(tex, ivec2(gl_FragCoord.xy), 0).rgb, 1.0);
+      out_color = vec4(pow(clamp(texelFetch(tex, ivec2(gl_FragCoord.xy), 0).rgb, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2)), 1.0);
     }`);
 
   return {
@@ -196,7 +196,9 @@ function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : Leg
     ${uniforms.join("\n")}
     ${samplers.join("\n")}`
   );
+  source_assembler.addNonSourceBlock(`void main(){\n`)
   source_assembler.addSourceBlock(`${shaderDesc.body.text}`, shaderDesc.body.start);  
+  source_assembler.addNonSourceBlock(`}\n`)
   return source_assembler
 }
 
