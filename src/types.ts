@@ -207,7 +207,7 @@ export type LegitScriptCachedImageRequest = {
   id: number
   type : 'CachedImageRequest'
   pixel_format: string
-  size : ivec2
+  size : uvec2
 }
 export type LegitScriptLoadedImageRequest = {
   filename : string
@@ -230,7 +230,11 @@ export type LegitScriptContextInput =
   LegitScriptOptInt |
   LegitScriptOptIVec2 |
   LegitScriptOptIVec3 |
-  LegitScriptOptIVec4
+  LegitScriptOptIVec4 |
+  LegitScriptOptUInt |
+  LegitScriptOptUVec2 |
+  LegitScriptOptUVec3 |
+  LegitScriptOptUVec4
 
 
 export type LegitScriptFrameResult = {
