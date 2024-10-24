@@ -2,7 +2,7 @@ export const initialContent = `[blendmode: multiplicative]
 void ColorPass(
   in vec3 color,
   in vec2 c,
-  in ivec2 size,
+  in uvec2 size,
   out vec4 out_color
 )
 {{
@@ -12,7 +12,7 @@ void ColorPass(
     ivec2 pixel_idx = ivec2(gl_FragCoord.xy);
 
     vec2 uv = gl_FragCoord.xy / vec2(size);
-    vec2 z = vec2(pixel_idx - size / 2) / float(min(size.x, size.y)) * 2.0;
+    vec2 z = vec2(pixel_idx - ivec2(size) / 2) / float(min(size.x, size.y)) * 2.0;
     int it = 0;
     while (sqrt(dot(z, z)) < 20. && it < 50) {
       z = complex_sqr(z) + c;
@@ -26,7 +26,7 @@ void ColorPass(
   }
 }}
 
-void DEBUGPassUV(in ivec2 size, out vec4 out_color)
+void DEBUGPassUV(in uvec2 size, out vec4 out_color)
 {{
   void main()
   {
@@ -46,7 +46,7 @@ void TwoOutputsShader(out vec4 out_color1, out vec4 out_color2)
 
 [blendmode: alphablend]
 void TwoInputsShader(
-  in ivec2 size,
+  in uvec2 size,
   sampler2D tex1,
   sampler2D tex2,
   out vec4 out_color
@@ -55,10 +55,10 @@ void TwoInputsShader(
   void main()
   {
     ivec2 pixel_idx = ivec2(gl_FragCoord.xy);
-    if (pixel_idx.x > size.x - 200 && pixel_idx.y > size.y - 200) {
+    if (pixel_idx.x > int(size.x) - 200 && pixel_idx.y > int(size.y) - 200) {
 
       float mult = 0.1;
-      ivec2 rel = pixel_idx - (size - 200);
+      ivec2 rel = pixel_idx - (ivec2(size) - 200);
       ivec2 checkerboard = ivec2(rel >> 4);
       vec4 a = texelFetch(tex1, ivec2(rel.xy), 0);
       vec4 b = texelFetch(tex2, ivec2(rel.xy), 0);
