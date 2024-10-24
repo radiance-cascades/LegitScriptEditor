@@ -496,7 +496,7 @@ function ExecuteFrame(dt: number, state: State) {
 
   state.processedRequests.push({
     name : '@swapchain_size',
-    type : 'ivec2',
+    type : 'uvec2',
     value : {x : gpu.canvas.width, y: gpu.canvas.height}
   });
   state.processedRequests.push({
