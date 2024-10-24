@@ -121,6 +121,26 @@ export type LegitScriptOptIVec4 = {
   name : string
   value : ivec4
 }
+export type LegitScriptOptUInt = {
+  type : 'uint'
+  name : string
+  value : number
+}
+export type LegitScriptOptUVec2 = {
+  type : 'uvec2'
+  name : string
+  value : uvec2
+}
+export type LegitScriptOptUVec3 = {
+  type : 'uvec3'
+  name : string
+  value : uvec3
+}
+export type LegitScriptOptUVec4 = {
+  type : 'uvec4'
+  name : string
+  value : uvec4
+}
 
 export type LegitScriptShaderInvocationUniform = 
 LegitScriptOptFloat |
@@ -130,7 +150,11 @@ LegitScriptOptVec4 |
 LegitScriptOptInt |
 LegitScriptOptIVec2 |
 LegitScriptOptIVec3 |
-LegitScriptOptIVec4
+LegitScriptOptIVec4 |
+LegitScriptOptUInt |
+LegitScriptOptUVec2 |
+LegitScriptOptUVec3 |
+LegitScriptOptUVec4
 
 
 export type LegitScriptShaderInvocationSamplerBinding = {
@@ -149,6 +173,9 @@ export type LegitScriptShaderInvocation = {
 export type ivec2 = {x : number, y : number}
 export type ivec3 = {x : number, y : number, z : number}
 export type ivec4 = {x : number, y : number, z : number, w : number}
+export type uvec2 = {x : number, y : number}
+export type uvec3 = {x : number, y : number, z : number}
+export type uvec4 = {x : number, y : number, z : number, w : number}
 export type vec2 = {x : number, y : number}
 export type vec3 = {x : number, y : number, z : number}
 export type vec4 = {x : number, y : number, z : number, w : number}

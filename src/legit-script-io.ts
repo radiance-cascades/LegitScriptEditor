@@ -143,7 +143,7 @@ export function RunScriptInvocations(
           gl.uniform4f(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
           break
         }
-        case "int": {
+        case 'int': {
           gl.uniform1i(pass.uniforms[uniformIndex], uniform.value)
           break
         }
@@ -157,6 +157,22 @@ export function RunScriptInvocations(
         }
         case 'ivec4': {
           gl.uniform4i(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
+          break
+        }
+        case 'uint': {
+          gl.uniform1ui(pass.uniforms[uniformIndex], uniform.value)
+          break
+        }
+        case 'uvec2': {
+          gl.uniform2ui(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y)
+          break
+        }
+        case 'uvec3': {
+          gl.uniform3ui(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z)
+          break
+        }
+        case 'uvec4': {
+          gl.uniform4ui(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
           break
         }
       }
