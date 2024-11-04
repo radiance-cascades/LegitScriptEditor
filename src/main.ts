@@ -400,7 +400,7 @@ async function Init(
 
   const legitScriptCompiler = await LegitScriptCompiler()
 
-  const editor = InitEditor(editorEl)
+  const editor = await InitEditor(editorEl)
   if (!editor) {
     throw new Error("could not initialize monaco")
   }
@@ -527,12 +527,12 @@ function ExecuteFrame(dt: number, state: State) {
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
-function InitEditor(editorEl: HTMLElement) {
+async function InitEditor(editorEl: HTMLElement) {
   if (!editorEl) {
     return
   }
   const editor = monaco.editor.create(editorEl, {
-    value: initialContent || "",
+    value: await initialContent(),
     language: "c",
     minimap: {
       enabled: false,
