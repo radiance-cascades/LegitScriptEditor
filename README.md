@@ -2,6 +2,8 @@
 Accessible directly from your web browser! https://radiance-cascades.github.io/LegitScriptEditor/
 We support loading scripts directly from github in the format: `https://radiance-cascades.github.io/LegitScriptEditor/?gh=<user>/<repo>/<path_to_file>`, for example: https://radiance-cascades.github.io/LegitScriptEditor/?gh=Raikiri/LegitCascades/Scaling.ls
 
+An optional flag `&ref=...` is also supported which can be a sha/tag but will default to master, for example: https://radiance-cascades.github.io/LegitScriptEditor/?gh=Raikiri/LegitCascades/Scaling.ls&rev=master
+
 An editor for [LegitScript](https://github.com/Raikiri/LegitScript) with WebGL output.
 
 ## Development
