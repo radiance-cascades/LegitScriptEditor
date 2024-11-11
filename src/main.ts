@@ -18,28 +18,40 @@ import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
 import {
   ImageCache,
   ImageCacheAllocatedImage,
-  ImageCacheGetImage
+  ImageCacheGetImage,
 } from "./image-cache.js"
 
 import {
   FailedCompilationResult,
-  CreateRasterProgram
+  CreateRasterProgram,
 } from "./webgl-shader-compiler.js"
 
 import { SourceAssembler } from "./source-assembler.js"
 import { initialContent } from "./initial-content.js"
-import { ProcessScriptRequests, RunScriptInvocations, SetBlendMode } from "./legit-script-io.js"
+import {
+  ProcessScriptRequests,
+  RunScriptInvocations,
+  SetBlendMode,
+} from "./legit-script-io.js"
 import { UIState } from "./immediate-ui.js"
+import { BindPlayerControls } from "./controls.js"
 
 export type State = {
   editor: any
   gpu: GPUState
   framegraph: Framegraph
   legitScriptCompiler: any
-  uiState : UIState
-  processedRequests : LegitScriptContextInput[]
+  uiState: UIState
+  processedRequests: LegitScriptContextInput[]
   imageCache: ImageCache
   hasCompiledOnce: boolean
+  playerState: {
+    playing: boolean
+    startTime: number
+
+    // let a single frame through on rebuild or reset
+    reset: boolean
+  }
 }
 
 self.MonacoEnvironment = {
@@ -48,16 +60,13 @@ self.MonacoEnvironment = {
   },
 }
 
-
 function CompileLegitScript(
   legitScriptCompiler: LegitScriptCompiler,
   editor: monaco.editor.ICodeEditor
 ): LegitScriptLoadResult | false {
   try {
     const content = editor.getModel()?.createSnapshot().read() || ""
-    const r = JSON.parse(
-      legitScriptCompiler.LegitScriptLoad(content)
-    )
+    const r = JSON.parse(legitScriptCompiler.LegitScriptLoad(content))
     return r
   } catch (e) {
     console.error(e)
@@ -67,10 +76,12 @@ function CompileLegitScript(
 
 function LegitScriptFrame(
   legitScriptCompiler: LegitScriptCompiler,
-  processedRequests : LegitScriptContextInput[]
+  processedRequests: LegitScriptContextInput[]
 ): LegitScriptFrameResult | false {
   try {
-    const raw = legitScriptCompiler.LegitScriptFrame(JSON.stringify(processedRequests))
+    const raw = legitScriptCompiler.LegitScriptFrame(
+      JSON.stringify(processedRequests)
+    )
     return JSON.parse(raw)
   } catch (e) {
     console.error(e)
@@ -103,8 +114,6 @@ function CreateFullscreenRenderer(gl: WebGL2RenderingContext) {
     gl.drawArrays(gl.TRIANGLES, 0, 3)
   }
 }
-
-
 
 function InitWebGL(
   canvas: HTMLCanvasElement,
@@ -140,8 +149,9 @@ function InitWebGL(
   if (!container) {
     throw new Error("canvas must have a container")
   }
-  
-  const res = CreateRasterProgram(gl,
+
+  const res = CreateRasterProgram(
+    gl,
     `#version 300 es
     precision highp float;
     precision highp sampler2D;
@@ -151,11 +161,12 @@ function InitWebGL(
     {
       //out_color = vec4(texelFetch(tex, ivec2(gl_FragCoord.xy), 0).rgb, 1.0);
       out_color = vec4(pow(clamp(texelFetch(tex, ivec2(gl_FragCoord.xy), 0).rgb, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2)), 1.0);
-    }`);
+    }`
+  )
 
   return {
     container,
-    copyProgram : res.type === 'success' ? res.program : null,
+    copyProgram: res.type === "success" ? res.program : null,
     canvas,
     dims: [0, 0],
     gl: gl,
@@ -163,8 +174,10 @@ function InitWebGL(
   }
 }
 
-function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : LegitScriptShaderDesc) : SourceAssembler
-{
+function AssembleShader(
+  declarations: LegitScriptDeclaration[],
+  shaderDesc: LegitScriptShaderDesc
+): SourceAssembler {
   const outputs = shaderDesc.outs.map(
     ({ name, type }, index) =>
       `layout(location=${index}) out ${type} ${name};\n`
@@ -180,12 +193,13 @@ function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : Leg
   source_assembler.addNonSourceBlock(
     `#version 300 es
     precision highp float;
-    precision highp sampler2D;`)
-  
-  for(const include of shaderDesc.includes){
-    for(const decl of declarations){
-      if(decl.name == include){
-        source_assembler.addSourceBlock(decl.body.text, decl.body.start);
+    precision highp sampler2D;`
+  )
+
+  for (const include of shaderDesc.includes) {
+    for (const decl of declarations) {
+      if (decl.name == include) {
+        source_assembler.addSourceBlock(decl.body.text, decl.body.start)
         break
       }
     }
@@ -195,9 +209,12 @@ function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : Leg
     `${outputs.join("\n")}
     ${uniforms.join("\n")}
     ${samplers.join("\n")}`
-  );
+  )
   source_assembler.addNonSourceBlock(`void main(){\n`)
-  source_assembler.addSourceBlock(`${shaderDesc.body.text}`, shaderDesc.body.start);  
+  source_assembler.addSourceBlock(
+    `${shaderDesc.body.text}`,
+    shaderDesc.body.start
+  )
   source_assembler.addNonSourceBlock(`}\n`)
   return source_assembler
 }
@@ -205,15 +222,14 @@ function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : Leg
 function CreatePass(
   gl: WebGL2RenderingContext,
   program: WebGLProgram,
-  fragSource : string,
+  fragSource: string,
   desc: LegitScriptShaderDesc
-) : FramegraphPass{
-  
-  return{
-    fragSource : fragSource,
-    blendMode : desc.blend_mode,
-    program : program,
-    fbo : gl.createFramebuffer(),
+): FramegraphPass {
+  return {
+    fragSource: fragSource,
+    blendMode: desc.blend_mode,
+    program: program,
+    fbo: gl.createFramebuffer(),
     uniforms: desc.uniforms.map(({ name }) => {
       return gl.getUniformLocation(program, name)
     }),
@@ -227,14 +243,13 @@ function CreatePass(
 function UpdateFramegraph(
   { gl }: GPUState,
   framegraph: Framegraph,
-  result: LegitScriptLoadResult | undefined,
-) : FailedCompilationResult | null {
+  result: LegitScriptLoadResult | undefined
+): FailedCompilationResult | null {
   if (!result) {
     return null
   }
 
   for (const desc of result.shader_descs || []) {
-
     const sourceAssembler = AssembleShader(result.declarations, desc)
     const fragSource = sourceAssembler.getResultText()
     let pass: FramegraphPass = framegraph.passes[desc.name]
@@ -245,33 +260,35 @@ function UpdateFramegraph(
     }
 
     const res = CreateRasterProgram(gl, fragSource)
-    if (res.type === 'fail') {
-      const src_line = sourceAssembler.getSourceLine(res.line);
+    if (res.type === "fail") {
+      const src_line = sourceAssembler.getSourceLine(res.line)
       return {
-        line : src_line ? src_line : 0,
-        msg : res.msg,
-        type: 'fail'
+        line: src_line ? src_line : 0,
+        msg: res.msg,
+        type: "fail",
       }
     }
-    if(res.type === 'success')
-    {
+    if (res.type === "success") {
       if (pass?.program) {
         gl.deleteProgram(pass.program)
       }
 
-      framegraph.passes[desc.name] = CreatePass(gl, res.program, fragSource, desc);
+      framegraph.passes[desc.name] = CreatePass(
+        gl,
+        res.program,
+        fragSource,
+        desc
+      )
     }
   }
   return null
 }
-
 
 function AttachDragger(
   dragEl: HTMLElement,
   resizeTarget: HTMLElement,
   cb: (rect: DOMRect) => void
 ) {
-
   const dragWidth = dragEl.getBoundingClientRect().width
 
   let down = false
@@ -302,14 +319,13 @@ function AttachDragger(
   })
 }
 
-
 function SetEditorSquiggies(
-  decorations : monaco.editor.IEditorDecorationsCollection,
-  editor : monaco.editor.IStandaloneCodeEditor,
-  line : number,
-  column : number,
-  desc : string){
-  
+  decorations: monaco.editor.IEditorDecorationsCollection,
+  editor: monaco.editor.IStandaloneCodeEditor,
+  line: number,
+  column: number,
+  desc: string
+) {
   decorations.set([
     {
       range: new monaco.Range(line, 1, line, 1),
@@ -348,8 +364,9 @@ function SetEditorSquiggies(
   }
 }
 function UnsetEditorSquiggies(
-  decorations : monaco.editor.IEditorDecorationsCollection,
-  editor : monaco.editor.IStandaloneCodeEditor){
+  decorations: monaco.editor.IEditorDecorationsCollection,
+  editor: monaco.editor.IStandaloneCodeEditor
+) {
   const model = editor.getModel()
   if (model) {
     monaco.editor.setModelMarkers(model, "legitscript", [])
@@ -357,9 +374,10 @@ function UnsetEditorSquiggies(
   }
 }
 
-function OnEditorUpdate(
-  state : State,
-  decorations : monaco.editor.IEditorDecorationsCollection){
+function BuildFramegraph(
+  state: State,
+  decorations: monaco.editor.IEditorDecorationsCollection
+) {
   const compileResult = CompileLegitScript(
     state.legitScriptCompiler,
     state.editor
@@ -368,7 +386,7 @@ function OnEditorUpdate(
     if (compileResult.error) {
       console.error("compileResult", compileResult)
       const { line, column, desc } = compileResult.error
-      SetEditorSquiggies(decorations, state.editor, line, column, desc);
+      SetEditorSquiggies(decorations, state.editor, line, column, desc)
     } else {
       const model = state.editor.getModel()
       if (model) {
@@ -376,13 +394,11 @@ function OnEditorUpdate(
         decorations.set([])
       }
       const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult)
-      if(err)
-      {
-        SetEditorSquiggies(decorations, state.editor, err.line, 0, err.msg);
-      }else
-      {
+      if (err) {
+        SetEditorSquiggies(decorations, state.editor, err.line, 0, err.msg)
+      } else {
         state.hasCompiledOnce = true
-        UnsetEditorSquiggies(decorations, state.editor);
+        UnsetEditorSquiggies(decorations, state.editor)
       }
     }
   }
@@ -392,7 +408,8 @@ async function Init(
   editorEl: HTMLElement | null,
   canvasEl: HTMLElement | null,
   controlsEl: HTMLElement | null,
-  draggerEl: HTMLElement | null
+  draggerEl: HTMLElement | null,
+  playerControlEl: HTMLElement | null
 ) {
   if (!editorEl || !canvasEl || !controlsEl || !draggerEl) {
     throw new Error("please provide an editor element and canvas element")
@@ -415,8 +432,6 @@ async function Init(
 
   editor.focus()
 
-
-
   const state: State = {
     editor,
     gpu: InitWebGL(canvasEl as HTMLCanvasElement, console.error),
@@ -425,18 +440,46 @@ async function Init(
     },
     legitScriptCompiler,
     processedRequests: [],
-    uiState : new UIState(controlsEl),
+    uiState: new UIState(controlsEl),
     imageCache: {
       id: 0,
       allocatedImages: new Map<string, ImageCacheAllocatedImage>(),
       requestIdToAllocatedImage: new Map<number, ImageCacheAllocatedImage>(),
     },
     hasCompiledOnce: false,
+    playerState: {
+      playing: true,
+      startTime: performance.now(),
+      reset: false,
+    },
   }
 
   const decorations = editor.createDecorationsCollection([])
   const typingDebouncer = createDebouncer(100, () => {
-    OnEditorUpdate(state, decorations);
+    BuildFramegraph(state, decorations)
+  })
+
+  // Wire up the renderer controls (play/pause, restart, build)
+  if (playerControlEl) {
+    BindPlayerControls(playerControlEl, {
+      playPauseFn: () => {
+        state.playerState.playing = !state.playerState.playing
+        return state.playerState.playing
+      },
+      restartFn: () => {
+        state.playerState.reset = true
+      },
+      buildFn: () => {
+        BuildFramegraph(state, decorations)
+      },
+    })
+  }
+
+  // handle keybinds
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey || e.altKey)) {
+      BuildFramegraph(state, decorations)
+    }
   })
 
   editor.getModel()?.onDidChangeContent(typingDebouncer)
@@ -445,10 +488,10 @@ async function Init(
 
 //there's no way in gles 3.0 to attach the backbuffer as part of an fbo. so we have to crate a temporary texture instead of the back buffer
 //and at the end of the frame copy it onto the back buffer
-function CopyTexToSwapchain(gpu: GPUState, tex : WebGLTexture | null){
+function CopyTexToSwapchain(gpu: GPUState, tex: WebGLTexture | null) {
   const gl = gpu.gl
-  SetBlendMode(gl, 'opaque');
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  SetBlendMode(gl, "opaque")
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
   gl.activeTexture(gl.TEXTURE0)
   gl.bindTexture(gl.TEXTURE_2D, tex)
@@ -456,15 +499,20 @@ function CopyTexToSwapchain(gpu: GPUState, tex : WebGLTexture | null){
   gpu.fullScreenRenderer()
 }
 
-
-
 function ExecuteFrame(dt: number, state: State) {
   if (!state.hasCompiledOnce) {
     // TODO: render a placeholder image "sorry, the shader didn't compile" or something
     requestAnimationFrame((dt) => ExecuteFrame(dt, state))
     return
   }
-  
+  if (state.playerState.reset) {
+    state.playerState.reset = false
+    state.playerState.startTime = dt
+  } else if (!state.playerState.playing) {
+    requestAnimationFrame((dt) => ExecuteFrame(dt, state))
+    return
+  }
+  const currentFrameTime = dt - state.playerState.startTime
   const gpu = state.gpu
 
   // Ensure we're sized properly w.r.t. pixel ratio
@@ -494,20 +542,19 @@ function ExecuteFrame(dt: number, state: State) {
   if (!state.framegraph) {
     return
   }
-  state.uiState.filterControls();
+  state.uiState.filterControls()
 
   state.processedRequests.push({
-    name : '@swapchain_size',
-    type : 'uvec2',
-    value : {x : gpu.canvas.width, y: gpu.canvas.height}
-  });
+    name: "@swapchain_size",
+    type: "uvec2",
+    value: { x: gpu.canvas.width, y: gpu.canvas.height },
+  })
   state.processedRequests.push({
-    name : '@time',
-    type : 'float',
-    value : dt
-  });
-  
-  
+    name: "@time",
+    type: "float",
+    value: currentFrameTime,
+  })
+
   const legitFrame = LegitScriptFrame(
     state.legitScriptCompiler,
     state.processedRequests
@@ -516,9 +563,20 @@ function ExecuteFrame(dt: number, state: State) {
 
   if (legitFrame) {
     try {
-      state.processedRequests = ProcessScriptRequests(state.uiState, state.imageCache, {x: gpu.canvas.width, y: gpu.canvas.height}, gl, legitFrame.context_requests);
-      RunScriptInvocations(state.imageCache, state.gpu, state.framegraph.passes, legitFrame.shader_invocations)
-      CopyTexToSwapchain(gpu, ImageCacheGetImage(state.imageCache, 0));
+      state.processedRequests = ProcessScriptRequests(
+        state.uiState,
+        state.imageCache,
+        { x: gpu.canvas.width, y: gpu.canvas.height },
+        gl,
+        legitFrame.context_requests
+      )
+      RunScriptInvocations(
+        state.imageCache,
+        state.gpu,
+        state.framegraph.passes,
+        legitFrame.shader_invocations
+      )
+      CopyTexToSwapchain(gpu, ImageCacheGetImage(state.imageCache, 0))
     } catch (e) {
       // can console.log/console.error this, but it'll stuck in a busy loop until error resolves
     }
@@ -563,5 +621,6 @@ Init(
   document.querySelector("#editor"),
   document.querySelector("output canvas"),
   document.querySelector("controls"),
-  document.querySelector("divider")
+  document.querySelector("divider"),
+  document.querySelector("player-controls")
 )

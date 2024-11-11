@@ -54,14 +54,13 @@ body {
   display: block;
   width: 1px;
   height: 100%;
-  background: #AAA;
+  background: #aaa;
   margin: 0 auto;
   border-right: #666 1px solid;
   border-left: #666 1px solid;
-
 }
 #app divider:hover::before {
-  background: #EEE;
+  background: #eee;
   margin: 0 auto;
   border-right: #666 1px solid;
   border-left: #666 1px solid;
@@ -97,4 +96,61 @@ body {
   display: block;
   margin-top: 1em;
   margin-left: 1em;
+}
+
+#app player-controls {
+  padding: 0.25em;
+  border: 1px solid #222;
+  background: #333;
+}
+
+#app player-controls button {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid #777;
+  display: inline-block;
+  padding: 0;
+  background: #666;
+}
+#app player-controls button:hover {
+  background: #777;
+  border: 1px solid #999;
+}
+
+#app player-controls button svg {
+  fill: #ccc;
+  width: 24px;
+  height: 24px;
+  padding-top: 3px;
+}
+#app player-controls button:hover svg {
+  fill: #0f7;
+  width: 24px;
+  height: 24px;
+  padding-top: 3px;
+}
+
+#app player-controls spacer {
+  display:inline-block;
+  width: 16px;
+}
+
+#app player-controls button[name="play-pause"] .play {
+  display: inline-block;
+}
+#app player-controls button[name="play-pause"] .pause {
+  display: none;
+}
+#app player-controls button[name="play-pause"].playing .play {
+  display: none;
+}
+#app player-controls button[name="play-pause"].playing .pause {
+  display: inline-block;
+}
+
+#app player-controls button[name="build"] svg {
+  width: 24px;
+  height: 24px;
 }
