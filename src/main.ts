@@ -180,7 +180,7 @@ function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : Leg
   source_assembler.addNonSourceBlock(
     `#version 300 es
     precision highp float;
-    precision highp sampler2D;`)
+    precision highp sampler2D;\n`)
   
   for(const include of shaderDesc.includes){
     for(const decl of declarations){
