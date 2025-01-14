@@ -193,7 +193,7 @@ function AssembleShader(
   source_assembler.addNonSourceBlock(
     `#version 300 es
     precision highp float;
-    precision highp sampler2D;`
+    precision highp sampler2D;\n`
   )
 
   for (const include of shaderDesc.includes) {
@@ -264,7 +264,7 @@ function UpdateFramegraph(
       const src_line = sourceAssembler.getSourceLine(res.line)
       return {
         line: src_line ? src_line : 0,
-        msg: res.msg,
+        msg: 'Pass ' + desc.name + ' failed: ' + res.msg,
         type: "fail",
       }
     }
@@ -386,7 +386,7 @@ function BuildFramegraph(
     if (compileResult.error) {
       console.error("compileResult", compileResult)
       const { line, column, desc } = compileResult.error
-      SetEditorSquiggies(decorations, state.editor, line, column, desc)
+      SetEditorSquiggies(decorations, state.editor, line, column, 'Render graph compilation failed: ' + desc)
     } else {
       const model = state.editor.getModel()
       if (model) {
