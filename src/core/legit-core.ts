@@ -12,7 +12,7 @@ import {
 } from "./types.js"
 
 // @ts-ignore
-import LegitScriptCompiler from "../LegitScript/LegitScriptWasm.js"
+import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
 import {
   ImageCache,
   ImageCacheAllocatedImage,
