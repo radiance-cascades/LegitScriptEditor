@@ -281,7 +281,8 @@ function ExecuteFrameLoop(currTime: number, state: State) {
     state.playerState.reset = false
     state.playerState.startTime = currTime
   }
-  ExecuteFrame(currTime, state.coreState, (contextRequests) => {return ProcessScriptUIRequests(state.uiState, contextRequests)}, state.playerState.startTime, state.playerState.playing);
+  const currFrameTime = currTime - state.playerState.startTime;
+  ExecuteFrame(currFrameTime, state.coreState, (contextRequests) => {return ProcessScriptUIRequests(state.uiState, contextRequests)}, state.playerState.playing);
   
   requestAnimationFrame((currTime) => ExecuteFrameLoop(currTime, state))
 }

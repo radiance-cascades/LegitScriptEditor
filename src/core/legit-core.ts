@@ -287,7 +287,7 @@ interface ProcessScriptUIRequestsCallback {
   (contextRequests : LegitScriptContextRequest[]) : LegitScriptContextInput[];
 }
 
-export function ExecuteFrame(currTime: number, state: CoreState, uiCallback: ProcessScriptUIRequestsCallback, startTime: number, isPlaying: boolean){
+export function ExecuteFrame(currTime: number, state: CoreState, uiCallback: ProcessScriptUIRequestsCallback, isPlaying: boolean){
   //  state.uiState.filterControls()
 
   if (!state.hasCompiledOnce) {
@@ -297,7 +297,6 @@ export function ExecuteFrame(currTime: number, state: CoreState, uiCallback: Pro
   if (!isPlaying) {
     return
   }
-  const currentFrameTime = currTime - startTime
   const gpu = state.gpu
 
   // Ensure we're sized properly w.r.t. pixel ratio
@@ -342,7 +341,7 @@ export function ExecuteFrame(currTime: number, state: CoreState, uiCallback: Pro
   state.processedRequests.push({
     name: "@time",
     type: "float",
-    value: currentFrameTime,
+    value: currTime,
   })
 
   const legitFrame = LegitScriptFrame(
@@ -373,3 +372,65 @@ export function ExecuteFrame(currTime: number, state: CoreState, uiCallback: Pro
   }
 }
 
+
+export let contextValues: Map<string, any> = new Map();
+
+export let contextDefsFloat:        Set<string> = new Set();
+export let contextDefsInt:          Set<string> = new Set();
+export let contextDefsBool:         Set<string> = new Set();
+export let contextDefsText:         Set<string> = new Set();
+
+export let activeContextVarNames:   Set<string> = new Set();
+
+export function ProcessScriptRequests(
+  contextRequests : LegitScriptContextRequest[]) : LegitScriptContextInput[]
+{
+  var contextInputs : LegitScriptContextInput[] = [];
+
+  contextDefsFloat.clear();
+  contextDefsInt.clear();
+  contextDefsBool.clear();
+  contextDefsText.clear();
+
+  activeContextVarNames.clear();
+  let sortIdx = 0;
+  for(const request of contextRequests){
+    switch(request.type) {
+      case 'TextRequest':
+        contextDefsText.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        sortIdx++;
+        break;
+      case 'FloatRequest':
+        contextInputs.push({
+          name : request.name,
+          type : 'float',
+          value : contextValues.get(request.name) ?? request.def_val
+        });
+        contextDefsFloat.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        activeContextVarNames.add(request.name);
+        sortIdx++;
+        break;
+      case 'IntRequest':
+        contextInputs.push({
+          name : request.name,
+          type : 'int',
+          value : contextValues.get(request.name) ?? request.def_val
+        });
+        contextDefsInt.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        activeContextVarNames.add(request.name);
+        sortIdx++;
+        break;
+      case 'BoolRequest':
+        contextInputs.push({
+          name : request.name,
+          type : 'int',
+          value : contextValues.get(request.name) ?? request.def_val
+        });
+        contextDefsBool.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        activeContextVarNames.add(request.name);
+        sortIdx++;
+        break;
+    }
+  }
+  return contextInputs;
+}
