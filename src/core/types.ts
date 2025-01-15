@@ -1,5 +1,4 @@
 export type GPUState = {
-  container: HTMLElement
   canvas: HTMLCanvasElement
   dims: number[]
   copyProgram : WebGLProgram | null

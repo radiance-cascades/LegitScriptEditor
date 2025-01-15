@@ -1,7 +1,6 @@
 import {
   uvec2,
   LegitScriptContextRequest,
-  LegitScriptContextInput,
   GPUState,
   FramegraphPasses,
   LegitScriptShaderInvocation,
@@ -14,16 +13,13 @@ import {
   ImageCacheStartFrame,
   ImageCacheProcessRequest} from "./image-cache";
 
-import { UIState } from "./immediate-ui";
 
-export function ProcessScriptRequests(
-  uiState : UIState,
+export function ProcessScriptImageRequests(
   imageCache : ImageCache,
   swapchainSize : uvec2,
   gl : WebGL2RenderingContext,
-  contextRequests : LegitScriptContextRequest[]) : LegitScriptContextInput[]
+  contextRequests : LegitScriptContextRequest[])
 {
-  var contextInputs : LegitScriptContextInput[] = [];
   ImageCacheStartFrame(
     gl,
     imageCache,
@@ -44,35 +40,10 @@ export function ProcessScriptRequests(
         console.error
       )
     }
-    if(request.type == 'FloatRequest'){
-      contextInputs.push({
-        name : request.name,
-        type : 'float',
-        value : uiState.floatSlider(request.name, request.def_val, request.min_val, request.max_val)
-      });
-    }
-    if(request.type == 'IntRequest'){
-      contextInputs.push({
-        name : request.name,
-        type : 'int',
-        value : uiState.intSlider(request.name, request.def_val, request.min_val, request.max_val)
-      });
-    }
-    if(request.type == 'TextRequest'){
-      uiState.text(request.text)
-    }
-    if(request.type == 'BoolRequest'){
-      contextInputs.push({
-        name : request.name,
-        type : 'int',
-        value : 1 //TODO: actually make a checkbox
-      });
-    }
     if(request.type == 'LoadedImageRequest'){
       //TODO: figure this out
     }
   }
-  return contextInputs;
 }
 
 export function SetBlendMode(gl: WebGL2RenderingContext, blendMode : LegitScriptBlendModes)
