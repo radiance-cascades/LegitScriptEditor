@@ -109,7 +109,12 @@ function InitWebGL(
 
   const gl = canvas.getContext("webgl2", options) as WebGL2RenderingContext
 
-  const extensions = ["EXT_color_buffer_float", "EXT_color_buffer_half_float"]
+  const extensions = [
+    "EXT_color_buffer_float", //for fp32 rendertargets
+    "EXT_color_buffer_half_float", //for fp16 rendertargets
+    "OES_texture_float", //intended to have fp32 sampled textures but looks like it doesn't work
+    "EXT_float_blend" //fixes a firefox warning when rendering into fp textures
+  ]
   for (const extensionName of extensions) {
     const extension = gl.getExtension(extensionName)
     if (!extension) {

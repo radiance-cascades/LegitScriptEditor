@@ -49,7 +49,10 @@ function ImageFormatToGL(
     }
 
     case "rgba32f": {
-      return { internalFormat: gl.RGBA32F, type: gl.FLOAT, format: gl.RGBA }
+      return {
+        internalFormat: gl.RGBA32F,
+        type: gl.FLOAT,
+        format: gl.RGBA }
     }
 
     default: {
@@ -119,13 +122,21 @@ export function ImageCacheProcessRequest(
       imageFormat.type,
       null
     )
-
+    let is_filterable = !(imageFormat.internalFormat == gl.RGBA32F);
+    //unfortunately, RGBA32F can't be filtered in gles3
+    if(is_filterable)
+    {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    }else
+    {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    }
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 0)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
     const id = cache.id++
 
     const cachedImg = {
