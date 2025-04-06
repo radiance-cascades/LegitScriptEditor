@@ -38,15 +38,6 @@ self.MonacoEnvironment = {
   },
 }
 
-
-function createDebouncer(delay: number, fn: () => void) {
-  let handle = setTimeout(fn, delay)
-  return function () {
-    handle && clearTimeout(handle)
-    handle = setTimeout(fn, delay)
-  }
-}
-
 function AttachDragger(
   dragEl: HTMLElement,
   resizeTarget: HTMLElement,
@@ -208,9 +199,6 @@ async function Init(
   }
 
   const decorations = editor.createDecorationsCollection([])
-  const typingDebouncer = createDebouncer(100, () => {
-    BuildFramegraph(state, decorations)
-  })
 
   // Wire up the renderer controls (play/pause, restart, build)
   if (playerControlEl) {
@@ -228,14 +216,15 @@ async function Init(
     })
   }
 
+  // initial content upon loading the page
+  BuildFramegraph(state, decorations)
+
   // handle keybinds
   window.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey || e.altKey)) {
       BuildFramegraph(state, decorations)
     }
   })
-
-  editor.getModel()?.onDidChangeContent(typingDebouncer)
   requestAnimationFrame((currTime) => ExecuteFrameLoop(currTime, state))
 }
 
