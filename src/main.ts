@@ -21,6 +21,7 @@ import {
   
 export type State = {
   editor:any
+  editorEl:HTMLElement
   coreState: CoreState
   uiState: UIState
   playerState: {
@@ -142,6 +143,7 @@ function BuildFramegraph(
       console.error("compileResult", compileResult)
       const { line, column, desc } = compileResult.error
       SetEditorSquiggies(decorations, state.editor, line, column, 'Render graph compilation failed: ' + desc)
+      state.editorEl.setAttribute("style", "border:2px solid orange")
     } else {
       const model = state.editor.getModel()
       if (model) {
@@ -151,9 +153,11 @@ function BuildFramegraph(
       const err = UpdateFramegraph(state.coreState.gpu, state.coreState.framegraph, compileResult)
       if (err) {
         SetEditorSquiggies(decorations, state.editor, err.line, 0, err.msg)
+        state.editorEl.setAttribute("style", "border:2px solid yellow")
       } else {
         state.coreState.hasCompiledOnce = true
         UnsetEditorSquiggies(decorations, state.editor)
+        state.editorEl.setAttribute("style", "border:2px solid green")
       }
     }
   }
@@ -189,6 +193,7 @@ async function Init(
 
   const state: State = {
     editor,
+    editorEl,
     coreState,
     uiState: new UIState(controlsEl),
     playerState: {
